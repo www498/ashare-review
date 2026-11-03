@@ -1,0 +1,35 @@
+# ---- 个人数据：绝不入库 ----
+positions.csv
+positions.txt
+statement.csv
+statement.xlsx
+statement.txt
+watchlist.txt
+Table_*.xlsx
+对账单*
+持仓.csv
+持仓.txt
+交割单*
+
+# ---- 运行产物 ----
+data/
+logs/
+reports/
+__pycache__/
+*.pyc
+*.pyo
+
+# ---- 工具内部文件 ----
+.box-agent/
+.workbuddy/
+
+# ---- 临时文件 ----
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+
+# 根目录截图（海报/封面放 docs/ 里单独管理）
+/*.png
+/*.jpg
+/*.jpeg

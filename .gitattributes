@@ -1,0 +1,7 @@
+# 批处理必须保持 CRLF，否则 cmd.exe 会解析错乱
+*.bat text eol=crlf
+
+# 其余文本统一 LF
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf

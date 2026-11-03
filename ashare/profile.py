@@ -1,0 +1,312 @@
+# -*- coding: utf-8 -*-
+"""
+交易行为画像：从交割单历史还原「这个人是怎么做交易的」。
+
+和市场分析的区别：市场分析讲"盘面怎么样"，这里讲"你自己做得怎么样"。
+这是本产品区别于普通行情软件的核心——行情软件只给你看市场，不告诉你你的问题。
+
+全部指标来自交割单的真实成交记录，FIFO 配对计算，可逐笔追溯。
+不使用大模型，不做收益预测，只对已发生的行为做统计归纳。
+
+口径说明（重要，避免误读）：
+- 已实现盈亏：按 FIFO（先买先卖）配对，含双边手续费
+- 持有天数：自然日（含周末），不是交易日
+- 胜率：盈利笔数 / 已配对笔数，部分卖出算独立一笔
+- 浮动盈亏不计入胜率，只在"知行合一"里与已实现对比
+"""
+import datetime as dt
+
+FEE_COLS = ["佣金", "其他费用", "印花税", "过户费"]
+
+BUY_WORDS = ("证券买入", "买入", "申购")
+SELL_WORDS = ("证券卖出", "卖出", "赎回")
+
+
+def _num(v):
+    try:
+        if v is None:
+            return 0.0
+        s = str(v).replace(",", "").strip()
+        if not s or s in ("-", "--", "—"):
+            return 0.0
+        return float(s)
+    except Exception:
+        return 0.0
+
+
+def fifo_match(df, col):
+    """FIFO 配对买卖，返回已实现交易列表。
+
+    为什么用 FIFO 而不是移动加权：移动加权只能给出"总体成本"，
+    无法还原"每一笔持有了多久、赚了多少"——而持有时长正是行为画像的核心。
+    """
+    import pandas as pd
+
+    c_code, c_name = col["code"], col.get("name")
+    c_act, c_qty, c_px = col["action"], col["qty"], col["price"]
+    c_date = col.get("date")
+    fees = [c for c in (col.get("fees") or []) if c]
+
+    out = []
+    for code, g in df.groupby(c_code, sort=False):
+        lots = []          # 未卖出的买入批次 [剩余数量, 买价, 买入日, 单股买入费]
+        name = str(g.iloc[-1][c_name]).strip() if c_name else ""
+        for _, r in g.iterrows():
+            act = str(r[c_act] or "")
+            q, px = _num(r[c_qty]), _num(r[c_px])
+            if q <= 0 or px <= 0:
+                continue
+            fee_total = sum(_num(r[c]) for c in fees)
+            fee_per = fee_total / q if q else 0.0
+            day = r[c_date] if c_date else None
+
+            if any(w in act for w in BUY_WORDS):
+                lots.append([q, px, day, fee_per])
+            elif any(w in act for w in SELL_WORDS):
+                left = q
+                while left > 0 and lots:
+                    lot = lots[0]
+                    take = min(left, lot[0])
+                    pnl = (px - lot[1]) * take - fee_per * take - lot[3] * take
+                    hold = None
+                    if day is not None and lot[2] is not None:
+                        try:
+                            hold = (day - lot[2]).days
+                        except Exception:
+                            hold = None
+                    out.append({
+                        "code": code, "name": name, "qty": take,
+                        "buy_px": lot[1], "sell_px": px,
+                        "buy_date": str(getattr(lot[2], "date", lambda: lot[2])()),
+                        "sell_date": str(getattr(day, "date", lambda: day)()),
+                        "hold_days": hold,
+                        "pnl": pnl,
+                        "ret_pct": (px / lot[1] - 1) * 100 if lot[1] else 0.0,
+                    })
+                    lot[0] -= take
+                    left -= take
+                    if lot[0] <= 1e-9:
+                        lots.pop(0)
+    return out
+
+
+def build(df, col, positions=None, quotes=None):
+    """生成完整画像。
+
+    df/col: 交割单与列映射（由 statement 模块提供）
+    positions: {code: {shares, cost}} 当前持仓，用于"知行合一"对比
+    quotes: {code: 行情} 当前价，用于算浮动盈亏
+    返回 dict，键都是可直接渲染的结构。
+    """
+    import numpy as np
+
+    trades = fifo_match(df, col)
+    if not trades:
+        return None
+
+    pnl = np.array([t["pnl"] for t in trades], dtype=float)
+    rets = np.array([t["ret_pct"] for t in trades], dtype=float)
+    holds = np.array([t["hold_days"] for t in trades if t["hold_days"] is not None],
+                     dtype=float)
+    win_mask = pnl > 0
+    loss_mask = pnl < 0
+    n = len(trades)
+
+    gross_win = float(pnl[win_mask].sum()) if win_mask.any() else 0.0
+    gross_loss = float(abs(pnl[loss_mask].sum())) if loss_mask.any() else 0.0
+
+    w_hold = np.array([t["hold_days"] for t in trades
+                       if t["pnl"] > 0 and t["hold_days"] is not None], dtype=float)
+    l_hold = np.array([t["hold_days"] for t in trades
+                       if t["pnl"] < 0 and t["hold_days"] is not None], dtype=float)
+
+    core = {
+        "n_closed": n,
+        "realized_pnl": float(pnl.sum()),
+        "win_rate": float(win_mask.mean()) if n else None,
+        "n_win": int(win_mask.sum()), "n_loss": int(loss_mask.sum()),
+        "gross_win": gross_win, "gross_loss": gross_loss,
+        "profit_factor": (gross_win / gross_loss) if gross_loss > 0 else None,
+        "avg_win": float(pnl[win_mask].mean()) if win_mask.any() else None,
+        "avg_loss": float(pnl[loss_mask].mean()) if loss_mask.any() else None,
+        "avg_win_pct": float(rets[win_mask].mean()) if win_mask.any() else None,
+        "avg_loss_pct": float(rets[loss_mask].mean()) if loss_mask.any() else None,
+        "best_pct": float(rets.max()) if n else None,
+        "worst_pct": float(rets.min()) if n else None,
+        "hold_avg": float(holds.mean()) if len(holds) else None,
+        "hold_median": float(np.median(holds)) if len(holds) else None,
+        "hold_win": float(w_hold.mean()) if len(w_hold) else None,
+        "hold_loss": float(l_hold.mean()) if len(l_hold) else None,
+    }
+
+    # 费用：高频交易的隐性成本，很多人完全没概念
+    fees = [c for c in (col.get("fees") or []) if c]
+    fee_sum = float(sum(_num(v) for c in fees for v in df[c])) if fees else 0.0
+    turnover = float(sum(_num(v) for v in df[col["qty"]] * df[col["price"]])) \
+        if col.get("qty") and col.get("price") else 0.0
+    core["fee_total"] = fee_sum
+    core["turnover"] = turnover
+    core["fee_ratio"] = (fee_sum / turnover) if turnover else None
+    core["fee_vs_pnl"] = (fee_sum / abs(core["realized_pnl"])) \
+        if core["realized_pnl"] else None
+
+    # 交易节奏
+    c_date = col.get("date")
+    if c_date:
+        days = sorted({str(getattr(v, "date", lambda: v)()) for v in df[c_date]})
+        span = None
+        if len(days) >= 2:
+            try:
+                d0 = dt.date.fromisoformat(days[0])
+                d1 = dt.date.fromisoformat(days[-1])
+                span = (d1 - d0).days
+            except Exception:
+                span = None
+        core["active_days"] = len(days)
+        core["span_days"] = span
+        core["trades_total"] = int(len(df))
+        core["trades_per_active_day"] = len(df) / len(days) if days else None
+        core["first_day"], core["last_day"] = days[0], days[-1]
+
+    # 分标的表现：看是不是在同一只票上反复犯错
+    by_code = {}
+    for t_ in trades:
+        r = by_code.setdefault(t_["code"], {"name": t_["name"], "n": 0, "pnl": 0.0,
+                                            "win": 0, "holds": []})
+        r["n"] += 1
+        r["pnl"] += t_["pnl"]
+        r["win"] += 1 if t_["pnl"] > 0 else 0
+        if t_["hold_days"] is not None:
+            r["holds"].append(t_["hold_days"])
+    per_stock = []
+    for code, r in by_code.items():
+        per_stock.append({
+            "code": code, "name": r["name"], "n": r["n"],
+            "pnl": round(r["pnl"], 2),
+            "win_rate": r["win"] / r["n"] if r["n"] else None,
+            "hold_avg": (sum(r["holds"]) / len(r["holds"])) if r["holds"] else None,
+        })
+    per_stock.sort(key=lambda x: x["pnl"])
+
+    # 知行合一：已实现 vs 当前浮动。
+    # 典型问题是"赚的卖掉、亏的留着"，这会让已实现为正而账户实际亏钱。
+    unreal = None
+    if positions and quotes:
+        tot = 0.0
+        for code, p in positions.items():
+            q = quotes.get(code) or {}
+            px = q.get("price")
+            if px and p.get("shares") and p.get("cost"):
+                tot += (px - p["cost"]) * p["shares"]
+        unreal = tot
+    core["unrealized_pnl"] = unreal
+
+    return {"core": core, "trades": trades, "per_stock": per_stock,
+            "tags": _tags(core, per_stock), "findings": _findings(core, per_stock)}
+
+
+def _tags(c, per_stock):
+    """行为标签。每个标签都绑定触发它的具体数值，可追溯。"""
+    out = []
+    h = c.get("hold_avg")
+    if h is not None:
+        if h <= 3:
+            out.append(("超短线", f"平均持有 {h:.1f} 天", "warn"))
+        elif h <= 10:
+            out.append(("短线波段", f"平均持有 {h:.1f} 天", "info"))
+        elif h <= 30:
+            out.append(("中短线", f"平均持有 {h:.1f} 天", "info"))
+        else:
+            out.append(("中长线", f"平均持有 {h:.1f} 天", "good"))
+
+    hw, hl = c.get("hold_win"), c.get("hold_loss")
+    if hw and hl and hl > hw * 1.5:
+        out.append(("持亏惜售", f"亏损单持有 {hl:.1f} 天 vs 盈利单 {hw:.1f} 天", "warn"))
+
+    wr = c.get("win_rate")
+    aw, al = c.get("avg_win"), c.get("avg_loss")
+    if wr is not None and wr >= 0.6 and aw and al and abs(al) > aw:
+        out.append(("高胜率低赔率", f"胜率 {wr:.0%} 但单笔均亏是均盈的 "
+                                    f"{abs(al) / aw:.1f} 倍", "warn"))
+    pf = c.get("profit_factor")
+    if pf is not None:
+        if pf >= 2:
+            out.append(("盈亏比健康", f"盈亏比 {pf:.2f}", "good"))
+        elif pf < 1:
+            out.append(("盈亏比失衡", f"盈亏比 {pf:.2f}（<1 为净亏）", "warn"))
+
+    tpd = c.get("trades_per_active_day")
+    if tpd and tpd >= 3:
+        out.append(("交易频繁", f"活跃日均 {tpd:.1f} 笔", "warn"))
+
+    fr = c.get("fee_vs_pnl")
+    if fr is not None and fr >= 0.5:
+        out.append(("费用侵蚀", f"手续费相当于已实现盈亏的 {fr:.0%}", "warn"))
+
+    worst = min((s for s in per_stock), key=lambda x: x["pnl"], default=None)
+    if worst and worst["pnl"] < 0 and worst["n"] >= 3:
+        out.append(("单票反复亏损", f"{worst['name']} 交易 {worst['n']} 次累计 "
+                                    f"{worst['pnl']:+.0f} 元", "warn"))
+    return out
+
+
+def _findings(c, per_stock):
+    """逐条发现：结论 + 数据依据 + 这个指标意味着什么。
+    每条都是 (标题, 数值, 含义/影响)，渲染层直接用。"""
+    f = []
+    wr, pf = c.get("win_rate"), c.get("profit_factor")
+    if wr is not None:
+        f.append(("胜率", f"{wr:.0%}（{c['n_win']}/{c['n_closed']} 笔盈利）",
+                  "胜率高只说明「做对的次数多」，不等于赚钱。"
+                  "它必须和盈亏比一起看：胜率 70% 但亏损单亏得比盈利单多，账户照样缩水。"))
+    if pf is not None:
+        verdict = ("每亏 1 元能赚回 %.2f 元，长期可持续" % pf) if pf >= 1.5 else (
+            "每亏 1 元只赚回 %.2f 元，容错空间很小" % pf if pf >= 1
+            else "每亏 1 元只赚回 %.2f 元，这个结构长期必然亏损" % pf)
+        f.append(("盈亏比（Profit Factor）", f"{pf:.2f}",
+                  f"总盈利 ÷ 总亏损。{verdict}。"
+                  f"比胜率更能决定最终结果，2.0 以上算健康。"))
+    hw, hl = c.get("hold_win"), c.get("hold_loss")
+    if hw and hl:
+        ratio = hl / hw if hw else None
+        if ratio and ratio > 1.5:
+            f.append(("持仓时长反差", f"盈利单平均 {hw:.1f} 天，亏损单平均 {hl:.1f} 天"
+                                      f"（{ratio:.1f} 倍）",
+                      "这是「截断利润、让亏损奔跑」的典型信号，行为金融学里叫处置效应："
+                      "赚一点就急着卖、亏了却不断等反弹。"
+                      "它会系统性压低盈亏比——因为盈利被提前锁死，亏损却有充分时间扩大。"))
+        else:
+            f.append(("持仓时长", f"盈利单 {hw:.1f} 天，亏损单 {hl:.1f} 天",
+                      "两者接近，说明卖出决策没有被盈亏情绪明显绑架，这是好信号。"))
+    aw, al = c.get("avg_win_pct"), c.get("avg_loss_pct")
+    if aw is not None and al is not None:
+        f.append(("单笔盈亏幅度", f"平均盈利 {aw:+.2f}%，平均亏损 {al:+.2f}%",
+                  "理想状态是盈利幅度大于亏损幅度。若相反，"
+                  "意味着止盈太早、止损太晚或根本没有止损线。"))
+    h = c.get("hold_avg")
+    tpd = c.get("trades_per_active_day")
+    if h is not None:
+        f.append(("交易周期", f"平均持有 {h:.1f} 天，中位数 {c['hold_median']:.0f} 天"
+                              + (f"，活跃日均 {tpd:.1f} 笔" if tpd else ""),
+                  "持有期越短，收益越依赖择时精度，手续费与冲击成本占比也越高；"
+                  "同时短周期里个股涨跌更接近随机，可提取的信息更少。"))
+    fr, ratio = c.get("fee_ratio"), c.get("fee_vs_pnl")
+    if fr is not None:
+        extra = ""
+        if ratio is not None:
+            extra = f"，相当于已实现盈亏的 {ratio:.0%}"
+        f.append(("交易成本", f"累计手续费 {c['fee_total']:,.2f} 元，"
+                              f"占成交额 {fr:.3%}{extra}",
+                  "手续费是确定性支出，和行情无关。"
+                  "换手越频繁，这块对净收益的侵蚀越大，它不会随市场好转而消失。"))
+    ur = c.get("unrealized_pnl")
+    rp = c.get("realized_pnl")
+    if ur is not None and rp is not None:
+        if rp > 0 and ur < 0:
+            f.append(("已实现 vs 浮动", f"已实现 {rp:+,.0f} 元，当前浮动 {ur:+,.0f} 元",
+                      "已实现为正但持仓浮亏，是「把赚钱的卖了、亏钱的留着」的直接证据。"
+                      "账户真实损益要看两者之和，不能只看卖出记录带来的成就感。"))
+        else:
+            f.append(("已实现 vs 浮动", f"已实现 {rp:+,.0f} 元，当前浮动 {ur:+,.0f} 元",
+                      "两者方向一致，说明卖出决策与持仓质量没有明显背离。"))
+    return f
