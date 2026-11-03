@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1080px;height:1920px;overflow:hidden;position:relative;
+  font-family:"Microsoft YaHei","PingFang SC",-apple-system,sans-serif;
+  background:linear-gradient(180deg,#f2f5fa 0%,#e9eef7 46%,#eef1f5 100%);color:#1f2328}
+
+.hero{position:absolute;left:0;top:0;width:1080px;height:620px;
+  background:linear-gradient(148deg,#1e3f6f 0%,#2f5fa8 58%,#3f74bd 100%)}
+.hero .glow{position:absolute;right:-120px;top:-140px;width:520px;height:520px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.18),transparent 68%)}
+.hero .grid{position:absolute;inset:0;opacity:.16;
+  background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);
+  background-size:54px 54px;
+  mask-image:linear-gradient(180deg,#000,transparent 78%);
+  -webkit-mask-image:linear-gradient(180deg,#000,transparent 78%)}
+
+.brand{position:absolute;left:76px;top:74px;display:flex;align-items:center;gap:13px}
+.mark{width:44px;height:44px;border-radius:11px;background:rgba(255,255,255,.96);
+  display:flex;align-items:center;justify-content:center}
+.mark span{color:#2f5fa8;font-size:23px;font-weight:800}
+.brand b{color:#fff;font-size:19px;font-weight:600;letter-spacing:3px}
+.brand i{color:rgba(255,255,255,.62);font-size:12px;font-style:normal;letter-spacing:1.6px}
+
+h1{position:absolute;left:76px;top:172px;font-size:78px;font-weight:800;
+  letter-spacing:-2.5px;line-height:1.16;color:#fff}
+h1 em{font-style:normal;color:#ffd9a0}
+.hsub{position:absolute;left:78px;top:392px;font-size:23px;color:rgba(255,255,255,.86);
+  letter-spacing:.6px;line-height:1.7}
+.hsub b{color:#fff;font-weight:600}
+
+.chips{position:absolute;left:76px;top:498px;display:flex;gap:12px}
+.chip{padding:7px 15px;border-radius:20px;font-size:14px;color:#fff;
+  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.26);letter-spacing:.5px}
+
+/* 通用卡片 */
+.card{position:absolute;left:76px;width:928px;background:#fff;border-radius:20px;
+  border:1px solid #e4e9f0;box-shadow:0 10px 30px rgba(31,42,58,.07);padding:30px 34px}
+.ct{font-size:13px;color:#8a94a6;letter-spacing:2.5px;margin-bottom:6px}
+.ch{font-size:29px;font-weight:700;letter-spacing:-.6px;margin-bottom:4px}
+.cd{font-size:15.5px;color:#6b7686;line-height:1.75;margin-bottom:22px}
+
+/* 市场卡 */
+.mkt{top:660px;height:404px}
+.trow{display:flex;align-items:flex-end;gap:20px;margin-bottom:6px}
+.tnum{font-size:64px;font-weight:800;line-height:.92;color:#c5221f;font-variant-numeric:tabular-nums}
+.tinfo{font-size:13.5px;color:#8a94a6;line-height:1.6;padding-bottom:6px}
+.tinfo b{color:#3c4453;font-weight:600}
+.segbar{display:flex;height:16px;border-radius:8px;overflow:hidden;margin:16px 0 8px}
+.segbar div{flex:1}
+.s1{background:#cfe0f5}.s2{background:#a9c6ea}.s3{background:#e3e6ea}
+.s4{background:#f2b8b2;position:relative}.s5{background:#dd8b84;flex:.62}
+.s4::after{content:"";position:absolute;right:9px;top:-3px;bottom:-3px;width:4px;
+  background:#1f2328;border-radius:2px}
+.seglab{display:flex;justify-content:space-between;font-size:12px;color:#a3abb8;margin-bottom:26px}
+.mstats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.ms{background:#f8fafc;border-radius:12px;padding:14px 15px}
+.ms .l{font-size:12px;color:#98a1b0;margin-bottom:6px}
+.ms .v{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.6px}
+.ms .v.up{color:#c5221f}
+.ms .v small{font-size:12px;color:#98a1b0;font-weight:500;margin-left:2px}
+
+/* 个人卡 */
+.per{top:1100px;height:430px}
+.flow{display:flex;align-items:center;gap:14px;margin:6px 0 24px}
+.step{flex:1;background:#f6f8fb;border:1px solid #e8edf4;border-radius:14px;
+  padding:16px 16px 14px;text-align:center}
+.step .ic{font-size:22px;margin-bottom:8px;color:#2f5fa8;font-weight:700}
+.step .n{font-size:15px;font-weight:600;color:#2b3240;margin-bottom:4px}
+.step .d{font-size:12px;color:#8a94a6;line-height:1.6}
+.arrow{color:#c3cbd7;font-size:20px;font-weight:700}
+.pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.ps{background:#fdf8f7;border:1px solid #f6e4e1;border-radius:12px;padding:16px 16px 14px}
+.ps .l{font-size:12px;color:#9b8a88;margin-bottom:7px}
+.ps .v{font-size:30px;font-weight:800;color:#c5221f;font-variant-numeric:tabular-nums;letter-spacing:-.8px}
+.ps .v small{font-size:13px;font-weight:600;color:#b08f8b;margin-left:3px}
+.ps .d{font-size:11.5px;color:#a89c9a;margin-top:6px}
+
+/* 取舍 */
+.trade{top:1566px;height:auto;background:transparent;border:none;box-shadow:none;padding:0}
+.trow2{display:flex;gap:14px}
+.tc{flex:1;background:#fff;border:1px solid #e4e9f0;border-radius:16px;padding:20px 20px 18px;
+  box-shadow:0 6px 18px rgba(31,42,58,.05)}
+.tc .h{font-size:15.5px;font-weight:700;color:#2b3240;margin-bottom:9px;
+  display:flex;align-items:center;gap:8px}
+.tc .h span{width:6px;height:16px;border-radius:3px;background:#2f5fa8;display:inline-block}
+.tc .b{font-size:12.5px;color:#6b7686;line-height:1.75}
+.tc .b b{color:#c5221f;font-weight:700}
+
+.foot{position:absolute;left:0;bottom:0;width:1080px;height:118px;
+  background:#1e2a3c;display:flex;align-items:center;justify-content:space-between;
+  padding:0 76px}
+.foot .l{color:rgba(255,255,255,.9);font-size:15px;letter-spacing:.4px}
+.foot .l b{color:#fff;font-weight:600}
+.foot .r{color:rgba(255,255,255,.55);font-size:12.5px;letter-spacing:.5px;text-align:right;line-height:1.7}
+</style></head><body>
+
+<div class="hero">
+  <div class="grid"></div><div class="glow"></div>
+  <div class="brand">
+    <div class="mark"><span>复</span></div>
+    <div><b>复盘台</b>　<i>ASHARE REVIEW</i></div>
+  </div>
+  <h1>市场在哪里，<br><em>你做得怎么样</em></h1>
+  <div class="hsub">每个交易日收盘后，<b>市场状态</b>与<b>个人交易</b>一起复盘</div>
+  <div class="chips">
+    <div class="chip">沪深京 5577 只</div>
+    <div class="chip">情绪温度 · 连板梯队</div>
+    <div class="chip">交割单还原持仓</div>
+  </div>
+</div>
+
+<div class="card mkt">
+  <div class="ct">MARKET SIDE</div>
+  <div class="ch">市场侧：今天处在什么位置</div>
+  <div class="cd">全量实时快照，五项因子合成自建情绪温度，附 120 日趋势与历史分位</div>
+
+  <div class="trow">
+    <div class="tnum">86.1</div>
+    <div class="tinfo">情绪温度 / 100<br><b>偏热</b>　处于近 <b>121</b> 个交易日的 <b>99%</b> 分位</div>
+  </div>
+  <div class="segbar"><div class="s1"></div><div class="s2"></div><div class="s3"></div><div class="s4"></div><div class="s5"></div></div>
+  <div class="seglab"><span>冰点</span><span>偏冷</span><span>中性</span><span>偏热</span><span>过热</span></div>
+
+  <div class="mstats">
+    <div class="ms"><div class="l">上涨 / 下跌</div><div class="v">4664<small> / 811</small></div></div>
+    <div class="ms"><div class="l">涨停家数</div><div class="v up">132<small> 家</small></div></div>
+    <div class="ms"><div class="l">涨幅中位数</div><div class="v up">+2.01<small>%</small></div></div>
+    <div class="ms"><div class="l">成交额</div><div class="v">17952<small> 亿</small></div></div>
+  </div>
+</div>
+
+<div class="card per">
+  <div class="ct">PERSONAL SIDE</div>
+  <div class="ch">个人侧：你自己做得怎么样</div>
+  <div class="cd">券商交割单读进来，还原持仓与含费成本，再按 FIFO 配对每一笔交易</div>
+
+  <div class="flow">
+    <div class="step"><div class="ic">01</div><div class="n">交割单</div>
+      <div class="d">券商导出流水<br>每行一笔成交</div></div>
+    <div class="arrow">›</div>
+    <div class="step"><div class="ic">02</div><div class="n">还原持仓</div>
+      <div class="d">移动加权含费成本<br>余额列交叉校验</div></div>
+    <div class="arrow">›</div>
+    <div class="step"><div class="ic">03</div><div class="n">行为画像</div>
+      <div class="d">FIFO 配对<br>胜率 / 盈亏比 / 持有天数</div></div>
+  </div>
+
+  <div class="pstats">
+    <div class="ps"><div class="l">已实现盈亏</div><div class="v">+268<small>元</small></div>
+      <div class="d">含双边手续费</div></div>
+    <div class="ps"><div class="l">配对胜率</div><div class="v">72<small>%</small></div>
+      <div class="d">18 笔已配对</div></div>
+    <div class="ps"><div class="l">盈亏比</div><div class="v">1.34</div>
+      <div class="d">平均持有 10 天</div></div>
+  </div>
+</div>
+
+<div class="card trade">
+  <div class="trow2">
+    <div class="tc"><div class="h"><span></span>不预测方向</div>
+      <div class="b">方向预测实测 <b>53.8%</b>，<br>基线 53.0%，不如基线。<br>只给波动包络。</div></div>
+    <div class="tc"><div class="h"><span></span>数字可溯源</div>
+      <div class="b">只解释不计算，输出逐数校验，<br>拦截 <b>95.7%</b> 的编造数字。</div></div>
+    <div class="tc"><div class="h"><span></span>零依赖看板</div>
+      <div class="b">单文件静态 HTML，<br><b>断网可开</b>，可直接转发。</div></div>
+  </div>
+</div>
+
+<div class="foot">
+  <div class="l"><b>复盘台</b>　A 股市场复盘 · 个人交易行为画像</div>
+  <div class="r">github.com/www498/ashare-review<br>Python · 腾讯 / 新浪 / baostock</div>
+</div>
+
+</body></html>

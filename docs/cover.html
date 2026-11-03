@@ -1,0 +1,153 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1920px;height:1080px;overflow:hidden;
+  font-family:"Microsoft YaHei","PingFang SC",-apple-system,sans-serif;
+  background:#eef1f5;color:#1f2328;position:relative}
+.bg{position:absolute;inset:0;
+  background:
+    radial-gradient(1200px 600px at 15% 0%, #ffffff 0%, rgba(255,255,255,0) 60%),
+    radial-gradient(900px 500px at 95% 100%, #dfe8f5 0%, rgba(223,232,245,0) 65%),
+    linear-gradient(135deg,#f7f9fc 0%,#e9eef6 100%)}
+.grid{position:absolute;inset:0;opacity:.5;
+  background-image:linear-gradient(#dde4ee 1px,transparent 1px),
+                   linear-gradient(90deg,#dde4ee 1px,transparent 1px);
+  background-size:48px 48px;
+  mask-image:linear-gradient(160deg,rgba(0,0,0,.55),transparent 62%);
+  -webkit-mask-image:linear-gradient(160deg,rgba(0,0,0,.55),transparent 62%)}
+
+.left{position:absolute;left:104px;top:50%;transform:translateY(-50%);width:900px}
+.brand{display:flex;align-items:center;gap:14px;margin-bottom:34px}
+.mark{width:46px;height:46px;border-radius:12px;background:#2f5fa8;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 18px rgba(47,95,168,.32)}
+.mark span{color:#fff;font-size:24px;font-weight:700;letter-spacing:-1px}
+.brand b{font-size:20px;font-weight:600;letter-spacing:2px;color:#2f5fa8}
+.brand i{font-style:normal;font-size:14px;color:#8a94a6;letter-spacing:.5px}
+
+h1{font-size:104px;font-weight:800;letter-spacing:-4px;line-height:1.02;color:#151a21}
+h1 em{font-style:normal;color:#2f5fa8}
+.sub{margin-top:26px;font-size:31px;font-weight:400;color:#495364;letter-spacing:.5px}
+.sub b{font-weight:700;color:#1f2328}
+.desc{margin-top:22px;font-size:19px;line-height:1.9;color:#6b7686;max-width:840px}
+
+.stats{display:flex;gap:56px;margin-top:68px}
+.stat .n{font-size:52px;font-weight:800;letter-spacing:-1.5px;color:#1f2328;
+  font-variant-numeric:tabular-nums;line-height:1}
+.stat .n small{font-size:19px;font-weight:500;color:#8a94a6;margin-left:5px;letter-spacing:0}
+.stat .l{margin-top:10px;font-size:14.5px;color:#8a94a6;letter-spacing:.6px}
+.stat .bar{width:34px;height:3px;background:#2f5fa8;border-radius:2px;margin-top:14px;opacity:.75}
+
+/* 右侧看板 */
+.panel{position:absolute;right:96px;top:50%;transform:translateY(-50%);width:730px;
+  background:#fff;border-radius:18px;border:1px solid #e2e7ee;
+  box-shadow:0 24px 60px rgba(31,42,58,.13),0 2px 6px rgba(31,42,58,.05);
+  padding:26px 28px 22px}
+.phead{display:flex;align-items:baseline;justify-content:space-between;
+  padding-bottom:16px;border-bottom:1px solid #eef1f5}
+.phead .t{font-size:16px;font-weight:600;color:#3c4453}
+.phead .d{font-size:12.5px;color:#98a1b0}
+.badge{display:inline-block;margin-left:10px;padding:2px 9px;border-radius:20px;
+  font-size:12px;font-weight:600;background:#fce9e7;color:#b3261e}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0 20px}
+.kpi{background:#f8fafc;border-radius:10px;padding:12px 13px}
+.kpi .l{font-size:11.5px;color:#98a1b0;margin-bottom:6px}
+.kpi .v{font-size:23px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.kpi .v.up{color:#c5221f}
+.kpi .v small{font-size:12px;font-weight:500;color:#98a1b0;margin-left:2px}
+
+.sec-t{font-size:12.5px;color:#98a1b0;margin-bottom:10px;letter-spacing:.5px}
+.temp{display:flex;align-items:flex-end;gap:14px;margin-bottom:8px}
+.temp .num{font-size:34px;font-weight:800;color:#c5221f;line-height:1;font-variant-numeric:tabular-nums}
+.temp .u{font-size:12px;color:#98a1b0;padding-bottom:3px}
+.segbar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:14px 0 7px}
+.segbar div{flex:1}
+.segbar .s1{background:#cfe0f5}.segbar .s2{background:#a9c6ea}
+.segbar .s3{background:#e3e6ea}.segbar .s4{background:#f2b8b2;position:relative}
+.segbar .s5{background:#dd8b84;flex:.6}
+.segbar .s4::after{content:"";position:absolute;right:6px;top:-3px;bottom:-3px;width:3px;
+  background:#1f2328;border-radius:2px}
+.seglab{display:flex;font-size:11px;color:#a3abb8;justify-content:space-between}
+
+.ladder{margin-top:16px}
+.lrow{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:12.5px}
+.lrow .b{width:34px;text-align:right;color:#8a94a6;font-size:11.5px}
+.lrow .track{flex:1;height:16px;position:relative}
+.lrow .fill{height:16px;border-radius:4px}
+.lrow .c{width:52px;color:#6b7686;font-variant-numeric:tabular-nums;font-size:11.5px}
+
+.pnl{margin-top:18px;padding-top:16px;border-top:1px solid #eef1f5;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pnl .l{font-size:11.5px;color:#98a1b0;margin-bottom:5px}
+.pnl .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+.pnl .v.up{color:#c5221f}
+.pnl .v small{font-size:11.5px;font-weight:500;color:#98a1b0;margin-left:2px}
+
+.foot{position:absolute;left:104px;bottom:64px;display:flex;align-items:center;gap:18px;
+  font-size:14px;color:#95a0b0}
+.foot .dot{width:4px;height:4px;border-radius:50%;background:#c6cfdb}
+</style></head><body>
+<div class="bg"></div><div class="grid"></div>
+
+<div class="left">
+  <div class="brand">
+    <div class="mark"><span>复</span></div>
+    <div><b>复盘台</b>　<i>ASHARE REVIEW WORKBENCH</i></div>
+  </div>
+
+  <h1>市场在哪里，<br><em>你做得怎么样</em></h1>
+
+  <div class="sub">每个交易日收盘后，同时回答<b>市场状态</b>与<b>个人交易</b>两个问题</div>
+  <div class="desc">
+    全量拉取沪深京 5577 只个股，合成情绪温度、连板梯队与波动区间；<br>
+    再读入券商交割单，按 FIFO 还原每笔交易的盈亏与持有天数。
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n">5577<small>只</small></div><div class="l">全市场实时快照</div><div class="bar"></div></div>
+    <div class="stat"><div class="n">6<small>秒</small></div><div class="l">单次完整取数</div><div class="bar"></div></div>
+    <div class="stat"><div class="n">120<small>日</small></div><div class="l">历史趋势回补</div><div class="bar"></div></div>
+    <div class="stat"><div class="n">0<small>依赖</small></div><div class="l">看板单文件离线可开</div><div class="bar"></div></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="phead">
+    <div class="t">市场温度<span class="badge">过热</span></div>
+    <div class="d">2026-11-02 · 收盘</div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="l">上证指数</div><div class="v up">3638.03<small>+1.08%</small></div></div>
+    <div class="kpi"><div class="l">涨 / 跌</div><div class="v">4664<small>/ 811</small></div></div>
+    <div class="kpi"><div class="l">涨停</div><div class="v up">132<small>家</small></div></div>
+    <div class="kpi"><div class="l">成交额</div><div class="v">17952<small>亿</small></div></div>
+  </div>
+
+  <div class="sec-t">情绪温度（五因子）</div>
+  <div class="temp"><div class="num">86.1</div><div class="u">/ 100　偏热区间上沿</div></div>
+  <div class="segbar"><div class="s1"></div><div class="s2"></div><div class="s3"></div><div class="s4"></div><div class="s5"></div></div>
+  <div class="seglab"><span>冰点</span><span>偏冷</span><span>中性</span><span>偏热</span><span>过热</span></div>
+
+  <div class="ladder">
+    <div class="sec-t" style="margin-top:4px">连板梯队</div>
+    <div class="lrow"><div class="b">6 板</div><div class="track"><div class="fill" style="width:12%;background:#c5221f"></div></div><div class="c">1 家</div></div>
+    <div class="lrow"><div class="b">4 板</div><div class="track"><div class="fill" style="width:12%;background:#e07a5f"></div></div><div class="c">1 家</div></div>
+    <div class="lrow"><div class="b">2 板</div><div class="track"><div class="fill" style="width:33%;background:#e07a5f"></div></div><div class="c">7 家</div></div>
+    <div class="lrow"><div class="b">1 板</div><div class="track"><div class="fill" style="width:88%;background:#f0c9c5"></div></div><div class="c">121 家</div></div>
+  </div>
+
+  <div class="pnl">
+    <div><div class="l">已实现盈亏</div><div class="v up">+268<small>元</small></div></div>
+    <div><div class="l">配对交易胜率</div><div class="v">72<small>%</small></div></div>
+    <div><div class="l">盈亏比</div><div class="v">1.34</div></div>
+  </div>
+</div>
+
+<div class="foot">
+  <span>Python · 标准库优先级</span><span class="dot"></span>
+  <span>腾讯 / 新浪 / baostock</span><span class="dot"></span>
+  <span>github.com/www498/ashare-review</span>
+</div>
+</body></html>
