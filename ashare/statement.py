@@ -80,10 +80,36 @@ def _classify(action):
     return "skip"
 
 
+# 顺序即优先级。statement.csv/xlsx 是工作台导入时写入的（每次覆盖），
+# 放最前面保证「最后导入的那份生效」，不会读到目录里残留的旧交割单。
 STATEMENT_FILES = [
+    "statement.csv", "statement.xlsx",
     "交割单.xlsx", "交割单.csv", "对账单.xlsx", "对账单.csv",
-    "statement.xlsx", "statement.csv", "Table_1091.xlsx",
+    "Table_1091.xlsx",
 ]
+
+
+def _read_csv_any(path):
+    """读 CSV，自动处理 BOM 与编码。
+
+    工作台写入的 statement.csv 带 utf-8-sig BOM，按纯 utf-8 读会让首列名
+    变成 "\ufeff证券代码"，列识别全部失效；券商手工导出的多为 GBK。
+    dtype 保持 str 以免「000001」丢前导零，数值列由 prepare() 统一转换。
+    """
+    import pandas as pd
+
+    last = None
+    for enc in ("utf-8-sig", "gbk", "gb18030", "utf-8", "big5"):
+        try:
+            return pd.read_csv(path, dtype=str, encoding=enc)
+        except UnicodeDecodeError as e:
+            last = e
+        except Exception as e:
+            # 解析层面的错误换编码也没用，直接抛给上层
+            raise
+    if last:
+        raise last
+    return pd.read_csv(path, dtype=str, encoding="utf-8", errors="ignore")
 
 
 def find_statement():
@@ -107,8 +133,12 @@ def find_statement():
         if not os.path.exists(p):
             continue
         try:
-            df = pd.read_excel(p) if p.lower().endswith((".xlsx", ".xlsm")) \
-                else pd.read_csv(p, dtype=str)
+            if p.lower().endswith((".xlsx", ".xlsm")):
+                df = pd.read_excel(p)
+            elif p.lower().endswith(".xls"):
+                continue          # 老二进制格式，pandas 需要 xlrd，跳过
+            else:
+                df = _read_csv_any(p)
             if looks_like_statement(df.columns):
                 return df
         except Exception:
@@ -140,6 +170,19 @@ def prepare(df):
     d["__code"] = d[col["code"]].astype(str).str.strip()
     d = d[d["__code"].str.match(CODE_RE)]
     d = d[~d["__code"].str.startswith("799")]
+
+    # 数值列统一转换。xlsx 由 pandas 自动推断成数字，但 CSV 用 dtype=str 读进来
+    # 全是字符串，「数量 × 价格」会直接抛 TypeError: can't multiply sequence
+    # by non-int of type 'str'。这里不做类型假设，一律转一遍。
+    for _key in ("qty", "price", "amount", "balance", "fee", "fee2", "tax", "transfer"):
+        _c = _pick(list(df.columns), COLS[_key])
+        if _c and _c in d.columns:
+            d[_c] = pd.to_numeric(
+                d[_c].astype(str).str.replace(r"[,，\s]", "", regex=True)
+                     .replace({"": None, "nan": None, "None": None,
+                               "--": None, "-": None}),
+                errors="coerce")
+
     if col["date"]:
         d["__date"] = pd.to_datetime(d[col["date"]], errors="coerce")
         keys = ["__date"] + ([col["time"]] if col["time"] else [])

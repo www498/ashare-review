@@ -465,7 +465,17 @@ class Handler(BaseHTTPRequestHandler):
                 rows.append({"code": code, "name": "" if name == code else name,
                              "shares": p.get("shares"), "cost": p.get("cost"),
                              "price": prices.get(code)})
-            self._send(200, json.dumps({"rows": rows, "meta": meta}, ensure_ascii=False))
+            # 识别为交割单就落盘 —— 否则画像永远算不出来（见 _save_statement 注释）
+            stmt_saved = False
+            if (meta or {}).get("kind") == "statement":
+                try:
+                    _save_statement(text, uid)
+                    stmt_saved = True
+                except Exception as e:
+                    print(f"[警告] 交割单保存失败：{e}")
+            self._send(200, json.dumps(
+                {"rows": rows, "meta": meta, "statement": stmt_saved},
+                ensure_ascii=False))
 
         elif path == "/upload":
             # xlsx 是 ZIP 二进制，浏览器端 readAsText 只会得到 PK... 乱码。
@@ -496,7 +506,17 @@ class Handler(BaseHTTPRequestHandler):
                 rows.append({"code": code, "name": "" if name == code else name,
                              "shares": p.get("shares"), "cost": p.get("cost"),
                              "price": prices.get(code)})
-            self._send(200, json.dumps({"rows": rows, "meta": meta}, ensure_ascii=False))
+            # 识别为交割单就落盘 —— 否则画像永远算不出来（见 _save_statement 注释）
+            stmt_saved = False
+            if (meta or {}).get("kind") == "statement":
+                try:
+                    _save_statement(text, uid)
+                    stmt_saved = True
+                except Exception as e:
+                    print(f"[警告] 交割单保存失败：{e}")
+            self._send(200, json.dumps(
+                {"rows": rows, "meta": meta, "statement": stmt_saved},
+                ensure_ascii=False))
 
         elif path == "/watchlist":
             try:
@@ -548,8 +568,11 @@ class Handler(BaseHTTPRequestHandler):
                 with open(fp, "w", encoding="utf-8-sig") as f:
                     f.write(_csv(rows))
                 withpos = sum(1 for r in rows if r.get("shares") and r.get("cost"))
-                self._send(200, json.dumps({"saved": len(rows), "withpos": withpos},
-                                           ensure_ascii=False))
+                has_stmt = os.path.exists(
+                    os.path.join(auth.paths(uid)["root"], "statement.csv"))
+                self._send(200, json.dumps(
+                    {"saved": len(rows), "withpos": withpos, "statement": has_stmt},
+                    ensure_ascii=False))
             except Exception as e:
                 self._send(200, json.dumps({"error": f"写入失败：{e}"}, ensure_ascii=False))
 
@@ -615,6 +638,28 @@ def _drop_positions(codes, uid=None):
     if len(kept) != len(lines):
         with open(fp, "w", encoding="utf-8-sig") as f:
             f.writelines(kept)
+
+
+def _save_statement(text, uid=None):
+    """把交割单落盘到账号目录的 statement.csv，供交易画像使用。
+
+    画像必须从**成交流水**算（FIFO 配对出盈亏、胜率、持有天数），而
+    run_review 是通过 statement.find_statement() 从磁盘读交割单的。
+    之前 /save 只写 positions.csv（持仓表：现在持有什么），交割单原件被丢掉，
+    于是「导入交割单 → 持仓对了 → 画像永远空」。
+
+    统一转成 CSV 落盘：_bytes_to_text 已处理 xlsx 与 GBK 等编码，
+    find_statement 读 CSV 也更稳，不必再关心原始扩展名。
+    """
+    from . import auth
+    base = auth.paths(uid)["root"]
+    os.makedirs(base, exist_ok=True)
+    dst = os.path.join(base, "statement.csv")
+    tmp = dst + ".tmp"
+    with open(tmp, "w", encoding="utf-8-sig", newline="") as f:
+        f.write(text)
+    os.replace(tmp, dst)          # 原子替换，避免生成报告时读到写了一半的文件
+    return dst
 
 
 def _bytes_to_text(raw, filename=""):

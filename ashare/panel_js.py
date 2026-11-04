@@ -284,6 +284,11 @@ PANEL_JS = r"""
       if(d.rows[i].shares > 0 && d.rows[i].cost > 0) pc++;
     }
     h += '<br>\u5176\u4e2d <b>' + pc + '</b> \u53ea\u6709\u5b8c\u6574\u6301\u4ed3\uff08\u6570\u91cf+\u6210\u672c\uff09';
+    if(d.statement){
+      h += '<br><span class="wbp-ok">\u4ea4\u5272\u5355\u5df2\u5165\u5e93\uff0c\u91cd\u65b0\u751f\u6210\u540e\u53ef\u770b\u5230\u4ea4\u6613\u884c\u4e3a\u753b\u50cf</span>';
+    }else if(kind === '\u4ea4\u5272\u5355'){
+      h += '<br><span class="wbp-err">\u4ea4\u5272\u5355\u672a\u80fd\u5165\u5e93\uff0c\u753b\u50cf\u5c06\u65e0\u6cd5\u751f\u6210</span>';
+    }
     $('wbp-map').innerHTML = h;
 
     var t = '<table><tr><th>\u4ee3\u7801</th><th>\u540d\u79f0</th><th class="n">\u6570\u91cf</th>' +
@@ -328,8 +333,12 @@ PANEL_JS = r"""
       .then(function(r){ return r.json(); })
       .then(function(d){
         if(d.error){ $('wbp-msg').innerHTML = '<span class="wbp-err">' + esc(d.error) + '</span>'; return; }
-        $('wbp-msg').innerHTML = '<span class="wbp-ok">\u5df2\u4fdd\u5b58 ' + d.saved +
-          ' \u53ea\uff08' + d.withpos + ' \u53ea\u5e26\u6301\u4ed3\uff09</span>';
+        var okMsg = '\u5df2\u4fdd\u5b58 ' + d.saved +
+          ' \u53ea\uff08' + d.withpos + ' \u53ea\u5e26\u6301\u4ed3\uff09';
+        if(d.statement){
+          okMsg += ' \u00b7 \u4ea4\u5272\u5355\u5df2\u5165\u5e93\uff0c\u751f\u6210\u540e\u53ef\u89c1\u884c\u4e3a\u753b\u50cf';
+        }
+        $('wbp-msg').innerHTML = '<span class="wbp-ok">' + okMsg + '</span>';
         if(thenRun){ startRegen(); } else { setTimeout(function(){ location.reload(); }, 700); }
       })
       .catch(function(e){
