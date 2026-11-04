@@ -6,9 +6,9 @@
 完整跑一次复盘要 3 分钟，录进去没人看；而这些界面本身是静态的，
 用「截图 + 缓慢推近 + 字幕」表达得更清楚，也方便改词重出。
 
-输出：docs/demo_body.mp4（1280x720，30fps，约 77 秒，无声）——成片的正片部分。
+输出：docs/demo_body.mp4（1280x720，30fps，约 100 秒，无声）——成片的正片部分。
 片头由 tools/make_intro.py 生成，最后用 tools/make_final_video.py 无损拼接成
-docs/demo.mp4（25s 片头 + 77s 正片 = 102s）。拆成三段是为了改文案时只重渲染一段。
+docs/demo.mp4（25s 片头 + 100s 正片 = 125s）。拆成三段是为了改文案时只重渲染一段。
 
 旁白另外配，或直接用字幕——无声版在 B 站也能看。
 
@@ -44,6 +44,14 @@ SCENES = [
          t1="不复盘，就只是重复", t2="A 股市场复盘 × 个人交易画像"),
     dict(kind="shot", img="vid_home.png", box=(200, 0, 1720, 855), dur=11,
          cap="主页：交易行为画像常驻，下面是每天的复盘"),
+    # 人物性格画像是产品的另一半（市场复盘 × 他自己），主页那帧只是带到，
+    # 这里用同一张真实画像卡取上下两个窗口，像镜头往下移：先看类型，再看怎么改。
+    dict(kind="shot", img="vid_profile.png", box=(0, 25, 1600, 925), dur=9,
+         cap="16 型画像从 31 笔成交算出：SACD 采药人，给的是坐标不是标签"),
+    dict(kind="shot", img="vid_profile.png", box=(0, 700, 1600, 1600), dur=7,
+         cap="不只给标签：只改一件事，先给每笔交易定一条止损线"),
+    dict(kind="shot", img="vid_persona.png", box=(0, 388, 1600, 1288), dur=7,
+         cap="16 个卡通形象对应 16 种打法，同一组色系是同一种打法"),
     dict(kind="shot", img="vid_dash.png", box=(200, 30, 1720, 885), dur=11,
          cap="单日看板：市场温度、持仓、今天做的每一笔"),
     dict(kind="shot", img="vid_cf.png", box=(0, 88, 1280, 808), dur=13,
