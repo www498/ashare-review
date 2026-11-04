@@ -526,9 +526,22 @@ def _sec_overview(h, ctx):
 
 
 def _sec_profile(h, ctx):
-    """交易行为画像。产品差异点：不只分析市场，也分析用户自己。"""
+    """交易行为画像。产品差异点：不只分析市场，也分析用户自己。
+
+    没有交割单时也渲染卡片：画像必须从成交流水算（持仓表只有「现在持有什么」，
+    没有买卖记录，算不出胜率与持有天数）。整块静默消失会让人以为功能没了，
+    所以给一个空状态和导入入口。
+    """
     p = ctx.get("profile")
     if not p:
+        h.append('<div class="card"><h2>交易行为画像'
+                 '<span class="wbp-slot" data-slot="prof"></span></h2>')
+        h.append('<div class="hint">还没有交割单。行为画像需要<b>成交流水</b>'
+                 '（哪天买了什么、卖了多少），只有持仓表算不出来。</div>')
+        h.append('<div class="hint" style="color:#8a8f98">'
+                 '在券商 App 里导出「交割单 / 对账单」，点上面的「导入交割单」粘贴即可，'
+                 '会自动还原持仓、含费成本，并算出胜率、盈亏比、持有天数。</div>')
+        h.append("</div>")
         return
     c = p["core"]
     span = ""

@@ -113,6 +113,14 @@ PANEL_JS = r"""
     $('wbp-open-imp').onclick = function(){ mask.classList.add('on'); };
   }
 
+  // ---------- 交易行为画像：导入交割单 ----------
+  function buildProfileSlot(){
+    var slot = ensureSlot('prof', '交易行为画像');
+    if(!slot) return;
+    slot.innerHTML = '<button class="wbp-btnx" id="wbp-open-stmt">导入交割单</button>';
+    $('wbp-open-stmt').onclick = openModal;
+  }
+
   // ---------- 自选股：添加 / 删除 ----------
   function buildWatchSlot(){
     var slot = ensureSlot('wl', '自选股');
@@ -350,6 +358,7 @@ PANEL_JS = r"""
   // ---------- 启动 ----------
   buildHeader();
   buildPosSlot();
+  buildProfileSlot();
   buildWatchSlot();
   bindRowDelete();
 })();

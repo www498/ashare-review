@@ -102,7 +102,7 @@ tr.exp td:last-child{white-space:nowrap}
 
 PANEL_HTML = """
 <div id="wbp-mask"><div id="wbp-dlg">
-  <div id="wbp-hd"><h3>导入持仓</h3>
+  <div id="wbp-hd"><h3>导入持仓 / 交割单</h3>
     <button id="wbp-x" title="关闭">\u00d7</button></div>
   <div class="wbp-pane">
     <div class="wbp-hint">\u652f\u6301<b>\u6301\u4ed3\u8868</b>\u4e0e<b>\u4ea4\u5272\u5355\uff08\u5bf9\u8d26\u5355\u6d41\u6c34\uff09</b>\uff1a\u4ece\u4e1c\u65b9\u8d22\u5bcc / \u540c\u82b1\u987a / \u5238\u5546\u5bfc\u51fa\u540e\u76f4\u63a5\u7c98\u8d34\uff0c\u6216\u9009\u6587\u4ef6\u3002\u4ea4\u5272\u5355\u4f1a\u6309\u4e70\u5356\u7d2f\u8ba1\u8fd8\u539f\u51fa\u5f53\u524d\u6301\u4ed3\u4e0e<b>\u542b\u8d39\u6210\u672c</b>\u3002</div>
