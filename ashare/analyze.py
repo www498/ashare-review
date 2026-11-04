@@ -418,7 +418,6 @@ def pm_prep(b, strength, broken, vratio, idx, temp, anom, lad, trend):
 def conclusion(session, b, temp, idx, vratio, anom):
     """把数字翻译成判断。规则化生成，不调用大模型。"""
     s = []
-    tag = "午盘" if session == "am" else "收盘"
     band = temp["band"]
     s.append(f"{C.MARKET_NAME} {b['n']} 只个股中 {b['up']} 涨 / {b['down']} 跌，涨幅中位数 {b['median_pct']:+.2f}%，"
              f"市场温度 {temp['total']} 分（{band}）。")

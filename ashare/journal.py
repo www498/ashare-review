@@ -14,7 +14,6 @@
 不做「事后诸葛亮」式的评价：不因为次日涨了就说买对，
 只判断**买入那一刻的位置与量能**是否属于常见的追高/低吸形态。
 """
-import datetime as _dt
 
 from .data import limit_pct
 
@@ -332,7 +331,7 @@ def review_sells(df, col, klines=None, trades=None, days=20, limit=6):
 
     c_code, c_act = col.get("code"), col.get("action")
     c_qty, c_px = col.get("qty"), col.get("price")
-    c_name, c_time = col.get("name"), col.get("time")
+    c_name = col.get("name")
     if not all([c_code, c_act, c_qty, c_px]):
         return None
 

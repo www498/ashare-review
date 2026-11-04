@@ -7,7 +7,7 @@
     python run_review.py --session pm --offline   # 用最近一次快照重放（演示兜底）
     python run_review.py --session pm --force     # 强制刷新成分表
 """
-import argparse, datetime as dt, json, os, sys, threading, time
+import argparse, datetime as dt, os, sys, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ashare import (data, analyze, report, history, ladder, industry,

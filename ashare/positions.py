@@ -265,7 +265,6 @@ def main():
     print(f"文件：{meta['file']}　数据行：{meta['rows']}　"
           f"表头：{'识别到' if meta['header'] else '未识别，按位置解析'}")
     if meta["columns"]:
-        rev = {v: k for k, v in meta["columns"].items()}
         print("列映射：" + "　".join(f"{k}=第{v+1}列" for k, v in meta["columns"].items()))
     print()
     for code, name in watch.items():

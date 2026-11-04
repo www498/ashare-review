@@ -40,8 +40,6 @@ def fifo_match(df, col):
     为什么用 FIFO 而不是移动加权：移动加权只能给出"总体成本"，
     无法还原"每一笔持有了多久、赚了多少"——而持有时长正是行为画像的核心。
     """
-    import pandas as pd
-
     c_code, c_name = col["code"], col.get("name")
     c_act, c_qty, c_px = col["action"], col["qty"], col["price"]
     c_date = col.get("date")

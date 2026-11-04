@@ -86,7 +86,6 @@ def build(klines=None, mapping=None, min_days=25):
         return None
 
     # 逐日横截面收益：{date: [pct, ...]}
-    prev = {}
     daily = {d: [] for d in dates[1:]}
     for code, m in closes.items():
         ds = sorted(m)

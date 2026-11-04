@@ -582,45 +582,6 @@ def _sec_journal(h, ctx):
     h.append("</div>")
 
 
-def _sec_news(h, ctx):
-    """消息面：当天公开快讯里与自选股相关的那几条，加上未来要盯的因素。"""
-    n = ctx.get("news") or {}
-    items = n.get("items") or []
-    if not items:
-        return
-    brief = n.get("brief") or {}
-
-    h.append('<div class="card"><h2>今天发生了什么'
-             f'<span style="font-size:12px;font-weight:400;color:#8a8f98;margin-left:10px">'
-             f'当天公开财经快讯 {n.get("total", len(items))} 条里筛出 {len(items)} 条相关</span></h2>')
-
-    if brief.get("summary"):
-        h.append('<div class="nsum">' + brief["summary"] + '</div>')
-    else:
-        h.append('<div class="hint">未配置模型，这里只列出与自选股行业相关的快讯原文，'
-                 '不做归纳。</div>')
-
-    if brief.get("watch"):
-        h.append('<div class="nwatch"><div class="nwt">未来几天关注</div><ul>')
-        for w in brief["watch"]:
-            h.append(f"<li>{w}</li>")
-        h.append("</ul></div>")
-
-    h.append('<table class="nl"><tr><th style="width:48px">时间</th><th>快讯标题</th>'
-             '<th style="width:82px">来源</th><th style="width:78px">关联</th></tr>')
-    for it in items:
-        h.append(f'<tr><td style="color:#8a8f98;font-variant-numeric:tabular-nums">'
-                 f'{it.get("time") or "—"}</td>'
-                 f'<td>{it.get("title")}</td>'
-                 f'<td style="color:#9aa2ad">{it.get("source")}</td>'
-                 f'<td><span class="ntag">{it.get("tag") or "宏观"}</span></td></tr>')
-    h.append("</table>")
-    h.append(f'<div style="{NOTE_STYLE}">快讯来自华尔街见闻与新浪财经的公开接口，'
-             '只取标题、未做事实核验。归纳部分由大模型复述标题生成，'
-             '不会补充标题以外的细节。</div>')
-    h.append("</div>")
-
-
 def _nw_when(n):
     """消息时间。跨夜的要标出「昨」，否则一列 09:12 和 23:40 看不出先后。"""
     t = (n.get("time") or "").strip()
@@ -715,8 +676,8 @@ def _sec_watch(h, ctx):
                         f'偏离 {at["gap"]:+.2f}pp → {verdict}')
         if a.get("reasons"):
             bits.append("触发条件：" + "、".join(a["reasons"]))
-        h.append(f'<div class="dcell" style="min-width:260px;font-size:12.5px;color:#5f6368">'
-                 f'<div class="t">明细</div>' + "<br>".join(bits) + "</div>")
+        h.append('<div class="dcell" style="min-width:260px;font-size:12.5px;color:#5f6368">'
+                 "<div class='t'>明细</div>" + "<br>".join(bits) + "</div>")
 
         # 诊断块（整行宽）
         if card:

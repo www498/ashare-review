@@ -8,7 +8,6 @@
 用法：python -m ashare.history --days 120
 """
 import argparse, os, pickle, time
-import numpy as np
 import pandas as pd
 import requests
 from concurrent.futures import ThreadPoolExecutor

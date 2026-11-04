@@ -12,7 +12,6 @@ LLM 解释层：只负责「把算好的数字翻译成人话」，不负责算�
     LLM_BASE_URL   可选，默认 DeepSeek
     LLM_MODEL      可选，默认 deepseek-chat
 """
-import json
 import os
 import re
 

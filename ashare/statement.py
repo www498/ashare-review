@@ -104,7 +104,7 @@ def _read_csv_any(path):
             return pd.read_csv(path, dtype=str, encoding=enc)
         except UnicodeDecodeError as e:
             last = e
-        except Exception as e:
+        except Exception :
             # 解析层面的错误换编码也没用，直接抛给上层
             raise
     if last:
