@@ -329,9 +329,12 @@ ashare/
   llm.py / attrib.py  LLM 解释层（含数字溯源校验，可选）
 
 tools/
-  persona_alpha.py  人格形象抠图与尺寸归一
-  make_art.py       生成 docs/ 下的封面与海报
-  gh_push.py        走 GitHub API 推送（本机 git 协议常被代理拦）
+  persona_alpha.py    人格形象抠图与尺寸归一
+  make_art.py         生成 docs/ 下的封面与海报
+  make_intro.py       25 秒片头逐帧绘制（红绿数字 → 问号 → 定格）
+  make_video.py       60 秒正片：真实界面截图 + 缓慢推近 + 字幕
+  make_final_video.py 无损拼接片头与正片 → docs/demo.mp4
+  gh_push.py          走 GitHub API 推送（本机 git 协议常被代理拦）
 
 tests/
   run_checks.py     离线自检：口径一致性、FIFO 配对、归因可加性
@@ -344,9 +347,35 @@ research/
 
 data/          行情公共缓存，所有账号共享（不入库）
 users/<uid>/   各账号的自选股、持仓、交割单、报告（不入库）
-docs/          封面、海报、项目介绍图
+docs/          封面、海报、演示片、在线体验页、提报材料
 reports/       单用户模式下的报告输出（不入库）
 ```
+
+---
+
+## 演示视频
+
+成片 `docs/demo.mp4`：1280×720 / 30fps / **85 秒** / 无声（信息全在字幕里，静音也能看）。
+
+| 时间 | 画面 | 想说的一件事 |
+|---|---|---|
+| 0:00–0:12 | 沪深京口径的红绿数字高速冲刷，底部压「涨了多少家、成交多少亿」 | 收盘后你看到的只有市场 |
+| 0:12–0:25 | 急停、问号淡入，文案上移定格「这些数字，和你的账户有什么关系？」 | 把问题从市场转到自己 |
+| 0:25–1:25 | 主页 → 单日看板 → 个股三段归因 → 跑输板块的反常案例 → 收尾 | 答案落在每一只票、每一笔操作 |
+
+片头用逐帧绘制而不是风格化视频生成：画面里的涨跌幅、涨跌家数、成交额都要能和
+真实行情对上，生成式画面写不准数字，节奏也没法卡在 12 秒那一下急停。
+
+三段各自可复现，改一句文案只需重渲染对应那一段（需要 `Pillow` + `imageio-ffmpeg`）：
+
+```bash
+python tools/make_intro.py        # docs/intro.mp4，25 秒
+python tools/make_video.py        # docs/demo_body.mp4，60 秒（依赖根目录 vid_*.png 界面截图）
+python tools/make_final_video.py  # docs/demo.mp4，85 秒，流拷贝无损拼接
+```
+
+`docs/intro.mp4` 与 `docs/demo.mp4` 入库；`demo_body.mp4` 是中间产物，不入库。
+拼接用 concat + `-c copy`，脚本会核对「25 + 60 = 85 秒、误差 0」才算成功。
 
 ---
 

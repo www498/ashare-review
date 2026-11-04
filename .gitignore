@@ -50,6 +50,5 @@ docs/art/
 tools/_ff/
 node_modules/
 
-# npm 临时依赖
-tools/_ff/
-node_modules/
+# 演示片正片是中间产物，只入库拼接后的成片
+docs/demo_body.mp4

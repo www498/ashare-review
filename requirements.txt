@@ -7,3 +7,7 @@ numpy>=1.24
 akshare>=1.12        # 指数/成分股清单
 baostock>=0.8        # 前复权日K、行业分类
 openpyxl>=3.1        # 读取 xlsx 格式的持仓表/交割单
+
+# 素材生成（可选，只在跑 tools/make_*.py 出封面/海报/演示片时需要）
+Pillow>=9.0          # 逐帧绘制、封面与海报排版
+imageio-ffmpeg>=0.4  # 提供 ffmpeg，用于把帧写成 mp4 / 无损拼接

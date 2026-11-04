@@ -6,20 +6,22 @@
 完整跑一次复盘要 3 分钟，录进去没人看；而这些界面本身是静态的，
 用「截图 + 缓慢推近 + 字幕」表达得更清楚，也方便改词重出。
 
-输出：docs/demo.mp4（1280x720，30fps，约 60 秒，无声）
+输出：docs/demo_body.mp4（1280x720，30fps，约 60 秒，无声）——成片的正片部分。
+片头由 tools/make_intro.py 生成，最后用 tools/make_final_video.py 无损拼接成
+docs/demo.mp4（25s 片头 + 60s 正片 = 85s）。拆成三段是为了改文案时只重渲染一段。
+
 旁白另外配，或直接用字幕——无声版在 B 站也能看。
 
-跑法：python tools/make_video.py
+跑法：python tools/make_video.py → python tools/make_intro.py → python tools/make_final_video.py
 """
 import os
-import subprocess
 import sys
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "docs", "demo.mp4")
+OUT = os.path.join(ROOT, "docs", "demo_body.mp4")
 
 W, H, FPS = 1280, 720, 30
 NAVY = (8, 20, 56)
