@@ -754,7 +754,11 @@ def _sec_profile(h, ctx):
 
     if p.get("tags"):
         h.append('<div class="tags">')
+        # 节奏类标签（超短线/短线波段…）已经写进人格标题，这里不再重复
+        _pace = {"超短线", "短线波段", "中短线", "中长线"}
         for name, basis, level in p["tags"]:
+            if per and name in _pace:
+                continue
             h.append(f'<span class="tg {level}" title="{basis}">{name}</span>')
         h.append("</div>")
 
