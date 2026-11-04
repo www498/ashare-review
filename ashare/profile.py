@@ -201,8 +201,87 @@ def build(df, col, positions=None, quotes=None):
         unreal = tot
     core["unrealized_pnl"] = unreal
 
+    tags = _tags(core, per_stock)
     return {"core": core, "trades": trades, "per_stock": per_stock,
-            "tags": _tags(core, per_stock), "findings": _findings(core, per_stock)}
+            "tags": tags, "findings": _findings(core, per_stock),
+            "persona": persona(core, per_stock, tags)}
+
+
+def persona(c, per_stock, tags=None):
+    """把指标翻译成「人格速写」：一个类型名、一句解释、几条硬事实、一条最该改的事。
+
+    原则：只用已经算出来的指标组合，不做心理侧写。
+    每个判断都能回溯到具体数字，避免「你是一个谨慎的投资者」这种没有信息量的废话。
+    """
+    wr, pf = c.get("win_rate"), c.get("profit_factor")
+    h = c.get("hold_avg")
+    hw, hl = c.get("hold_win"), c.get("hold_loss")
+    aw, al = c.get("avg_win"), c.get("avg_loss")
+
+    # ---- 节奏：按平均持有天数 ----
+    if h is None:
+        pace, pace_note = "节奏未知", ""
+    elif h <= 3:
+        pace, pace_note = "超短", f"平均 {h:.1f} 天就出手，几乎不留隔夜"
+    elif h <= 10:
+        pace, pace_note = "短线", f"平均拿 {h:.1f} 天，多数交易在一两周内结束"
+    elif h <= 30:
+        pace, pace_note = "波段", f"平均持有 {h:.1f} 天，跟一段趋势"
+    else:
+        pace, pace_note = "持有", f"平均持有 {h:.0f} 天，接近中线配置"
+
+    # ---- 盈亏结构：胜率 × 盈亏比 的四种组合 ----
+    if wr is None or pf is None:
+        style, style_note = "样本不足", "交易记录还不够多，先积累到 20 笔以上再谈风格"
+    elif wr >= 0.55 and pf >= 1.5:
+        style, style_note = "又准又狠", "既能挑对，也能让盈利跑得比亏损远 —— 这是最稀缺的组合"
+    elif wr >= 0.55:
+        style, style_note = "准但保守", "十次有六次以上做对，可惜赢得不够大，利润被提前落袋"
+    elif pf >= 1.5:
+        style, style_note = "少而重", "做对的次数不算多，但一次赚的能盖住好几次亏"
+    else:
+        style, style_note = "两头都欠", "做对的次数偏少，赢的时候也没多赚，结构上需要先降频"
+
+    # ---- 硬事实：每一条都能直接对上交割单 ----
+    facts = []
+    if c.get("best_pct") is not None:
+        facts.append(("最赚的一笔", f'{c["best_pct"]:+.1f}%', "单笔收益率上限"))
+    if c.get("worst_pct") is not None:
+        facts.append(("最亏的一笔", f'{c["worst_pct"]:+.1f}%', "单笔收益率下限"))
+    if aw and al and aw > 0:
+        facts.append(("一次失手", f"{abs(al) / aw:.1f} 倍于均盈",
+                      "亏损单平均亏的钱 ÷ 盈利单平均赚的钱"))
+    if per_stock:
+        worst = min(per_stock, key=lambda x: x["pnl"])
+        if worst["pnl"] < 0:
+            facts.append(("最拖后腿", f'{worst["name"]} {worst["pnl"]:+.0f} 元',
+                          f'交易 {worst["n"]} 次，累计亏损'))
+
+    # ---- 一条最该改的事：按「对盈亏影响最大」排序，只给一条 ----
+    fix = None
+    if hw and hl and hw > 0 and hl > hw * 1.5:
+        fix = (f"亏损单平均拿 {hl:.0f} 天，盈利单只拿 {hw:.0f} 天。"
+               f"先给每笔交易定一条止损线，别让亏损单的持有时间超过盈利单。")
+    elif pf is not None and pf < 1:
+        fix = (f"盈亏比 {pf:.2f}，每亏 1 元只赚回 {pf:.2f} 元。"
+               f"比起找更好的票，更该先砍掉那个反复亏损的标的。")
+    elif c.get("fee_vs_pnl") is not None and c["fee_vs_pnl"] >= 0.4:
+        fix = (f"手续费已相当于已实现盈亏的 {c['fee_vs_pnl']:.0%}。"
+               f"降低交易频率，比你多抓一个涨停更能改善净值。")
+    elif wr is not None and wr >= 0.55 and aw and al and abs(al) > aw:
+        fix = (f"胜率 {wr:.0%} 说明选股没问题，问题在止盈："
+               f"平均赚 {aw:,.0f} 元就跑，平均亏 {abs(al):,.0f} 元。把止盈放宽一档。")
+    elif c.get("hold_avg") is not None:
+        fix = (f"当前节奏是{pace}（平均 {c['hold_avg']:.1f} 天）。"
+               f"在这个周期里，最大的风险不是选错票，而是频繁换手带来的成本。")
+
+    return {
+        "title": f"{pace} · {style}",
+        "sub": style_note,
+        "pace_note": pace_note,
+        "facts": facts,
+        "fix": fix,
+    }
 
 
 def _tags(c, per_stock):

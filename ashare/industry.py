@@ -82,6 +82,9 @@ def _short(name):
     return s[:5]
 
 
+CACHE_VER = 2      # 1=仅沪市；2=沪市+深市（北交所 baostock 未覆盖）
+
+
 def fetch(force=False):
     """返回 {code6: 行业短名}。缓存里存原始分类名，短名在读取时生成，
     这样调整显示规则不用重新拉数据。"""
@@ -89,7 +92,7 @@ def fetch(force=False):
         try:
             with open(CACHE, encoding="utf-8") as f:
                 obj = json.load(f)
-            if time.time() - obj.get("ts", 0) < TTL:
+            if obj.get("v") == CACHE_VER and time.time() - obj.get("ts", 0) < TTL:
                 return {k: _short(v) for k, v in obj["map"].items()}
         except Exception:
             pass
@@ -101,13 +104,14 @@ def fetch(force=False):
     while rs.error_code == "0" and rs.next():
         row = rs.get_row_data()
         code, ind = row[1], row[3]
-        if code.startswith("sh.") and ind:
+        if code.startswith(("sh.", "sz.")) and ind:
             raw[code[3:]] = ind
     bs.logout()
 
     os.makedirs(os.path.dirname(CACHE), exist_ok=True)
     with open(CACHE, "w", encoding="utf-8") as f:
-        json.dump({"ts": time.time(), "map": raw}, f, ensure_ascii=False)
+        json.dump({"ts": time.time(), "v": CACHE_VER, "map": raw}, f,
+                  ensure_ascii=False)
     return {k: _short(v) for k, v in raw.items()}
 
 

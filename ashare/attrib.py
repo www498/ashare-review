@@ -123,3 +123,99 @@ def explain(ctx, retries=1):
                  f"请删掉它们或改用给定数据中的数字，重新输出。")
 
     return {"text": txt, "verified": False, "bad": bad}
+
+
+SYSTEM_PERSONAL = """你是一个交易复盘教练，正在帮一个普通投资者看自己的交割单。
+
+基于给定的统计数据，写两段中文点评。严格规则：
+1. 只能用给定数据里出现的数字，不得自行计算、估算、换算或引用任何外部行情。
+2. 不预测涨跌，不给买卖建议，不承诺收益，不用「必涨」「暴富」「血洗」这类词。
+3. 具体优于华丽：说「亏损单平均拿 12 天，盈利单只拿 4 天」比说「你有处置效应」有用。
+4. 语气像一个了解他的朋友，可以直接，但不刻薄。
+5. 两段都控制在 60~110 字。
+
+输出 JSON，不要 markdown 代码块：
+{"profile": "对这个人的交易风格点评：先说做得好的地方，再说最该改的一件事",
+ "stocks": {"股票名称": "这只票近期涨跌的最主要原因，一句话说清是跟大盘、跟板块，还是个股自身"}}
+"""
+
+
+def personal(ctx):
+    """生成「个人点评 + 个股归因短评」。没有 key 或调用失败时返回 None。
+
+    与市场解读分开调用的原因：这两块的数据来源是交割单与自选股，
+    而市场解读用的是盘面指标，混在一个 prompt 里模型容易张冠李戴。
+    """
+    if not llm.available():
+        return None
+    p = ctx.get("profile") or {}
+    c = p.get("core") or {}
+    per = p.get("persona") or {}
+
+    facts = {"画像": {
+        "已完成交易笔数": c.get("n_closed"),
+        "胜率": round((c.get("win_rate") or 0) * 100, 1),
+        "盈亏比": round(c.get("profit_factor") or 0, 2),
+        "已实现盈亏元": round(c.get("realized_pnl") or 0, 2),
+        "盈利单平均持有天": round(c.get("hold_win") or 0, 1),
+        "亏损单平均持有天": round(c.get("hold_loss") or 0, 1),
+        "平均盈利元": round(c.get("avg_win") or 0, 2),
+        "平均亏损元": round(c.get("avg_loss") or 0, 2),
+        "累计手续费元": round(c.get("fee_total") or 0, 2),
+    }}
+    if per.get("title"):
+        facts["风格判定"] = per["title"]
+
+    mv = ctx.get("movers") or {}
+    if mv:
+        arr = []
+        for code, m in mv.items():
+            arr.append({
+                "名称": m.get("name") or code,
+                "行业": m.get("industry"),
+                "近5日涨跌": round(m.get("total") or 0, 2),
+                "大盘贡献pp": round(m.get("market") or 0, 2),
+                "板块贡献pp": round(m.get("industry_part") or 0, 2),
+                "个股自身pp": round(m.get("firm") or 0, 2),
+                "主导因素": m.get("driver"),
+                "最大波动日": (m.get("key_day") or {}).get("date"),
+                "最大单日涨跌": round((m.get("key_day") or {}).get("pct") or 0, 2),
+            })
+        facts["自选股近5日归因"] = arr
+
+    if len(facts) == 1 and not mv:
+        return None
+
+    user = ("以下是这个人的交易画像与自选股归因数据：\n"
+            + json.dumps(facts, ensure_ascii=False, indent=1))
+
+    txt, bad = None, []
+    for _ in range(2):
+        try:
+            raw = llm.chat([{"role": "system", "content": SYSTEM_PERSONAL},
+                            {"role": "user", "content": user}],
+                           temperature=0.5, json_mode=True, timeout=90)
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {str(e)[:80]}", "profile": None,
+                    "stocks": {}}
+        try:
+            obj = json.loads(raw)
+        except Exception:
+            # 模型偶尔会带 ```json 包裹，剥一层再试
+            cleaned = raw.strip().strip("`")
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+            try:
+                obj = json.loads(cleaned)
+            except Exception:
+                return {"error": "输出不是合法 JSON", "profile": None, "stocks": {}}
+
+        txt = json.dumps(obj, ensure_ascii=False)
+        bad = llm.verify_numbers(txt, facts)
+        if not bad:
+            return {"profile": obj.get("profile"), "stocks": obj.get("stocks") or {},
+                    "verified": True, "bad": []}
+        user += (f"\n\n上一版包含这些在给定数据里找不到的数字：{bad}。"
+                 f"请删掉或改用给定的数字后重新输出 JSON。")
+
+    return {"profile": txt, "stocks": {}, "verified": False, "bad": bad}

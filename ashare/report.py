@@ -216,6 +216,13 @@ def _sec_watch(L, ctx, name):
             L.append("")
             for n in c["watch"][:4]:
                 L.append(f"- {n}")
+            m = (ctx.get("movers") or {}).get(code)
+            if m:
+                L.append(f"- **近 {m['n']} 日涨跌归因（{m['start']} ~ {m['end']}）**："
+                         f"累计 {m['total']:+.2f}%，其中大盘 {m['market']:+.1f}pp、"
+                         f"板块超额 {m['industry_part']:+.1f}pp、个股超额 {m['firm']:+.1f}pp → "
+                         f"{m['driver']}")
+                L.append(f"  {m['text']}")
             L.append("")
 
     hot = [a for a in ctx["anomalies"] if a.get("hot")]
@@ -328,6 +335,19 @@ def _sec_profile(L, ctx):
              f"FIFO 配对出 **{c['n_closed']}** 笔已完成交易。"
              f"全部来自交割单真实记录，可逐笔追溯。")
     L.append("")
+
+    per = p.get("persona")
+    if per:
+        L.append(f"### {per['title']}")
+        L.append("")
+        L.append(per["sub"] + (f"（{per['pace_note']}）" if per.get("pace_note") else ""))
+        L.append("")
+        if per.get("facts"):
+            L.append("　".join(f"**{lab}** {val}" for lab, val, _ in per["facts"]))
+            L.append("")
+        if per.get("fix"):
+            L.append(f"> **只改一件事**　{per['fix']}")
+            L.append("")
 
     if p.get("tags"):
         L.append("### 行为标签")

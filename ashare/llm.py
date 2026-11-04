@@ -21,10 +21,28 @@ import requests
 DEFAULT_BASE = "https://api.deepseek.com/v1"
 DEFAULT_MODEL = "deepseek-chat"
 
+# 不想配环境变量时，把 key 单独写进这个文件（一行，只有 key）。
+# 文件名带 key 字样，.gitignore 已排除，不会被推到公开仓库。
+KEY_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "llm_key.txt")
+
+
+def _file_key():
+    try:
+        with open(KEY_FILE, encoding="utf-8") as f:
+            for line in f:
+                s = line.strip()
+                if s and not s.startswith("#"):
+                    return s
+    except OSError:
+        pass
+    return None
+
 
 def _cfg():
     return (
-        os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY"),
+        os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+        or os.getenv("OPENAI_API_KEY") or _file_key(),
         os.getenv("LLM_BASE_URL", DEFAULT_BASE),
         os.getenv("LLM_MODEL", DEFAULT_MODEL),
     )

@@ -38,3 +38,7 @@ Thumbs.db
 
 # 本地启动配置（含账号 uid，不入库）
 launch_user.txt
+
+# LLM 密钥，绝不入库
+llm_key.txt
+.env

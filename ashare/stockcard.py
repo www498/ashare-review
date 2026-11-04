@@ -36,8 +36,12 @@ def build_one(code, q, klines, attr=None, fc=None, pos=None):
     if len(closes) < 21:
         return None
 
-    p5 = _pct(px, closes[-6]) if len(closes) >= 6 else None
-    p20 = _pct(px, closes[-21])
+    # 用日K收盘价而非实时价：同一页面的「近 5 日归因」也是日K口径，
+    # 两处若各用各的价格源，会出现 -2.8% 和 -3.5% 并存这种矛盾，
+    # 用户一眼就会怀疑数据不准。分位、均线本来也都用日K，这样全站同源。
+    last = closes[-1]
+    p5 = _pct(last, closes[-6]) if len(closes) >= 6 else None
+    p20 = _pct(last, closes[-21])
     hi20, lo20 = max(closes[-20:]), min(closes[-20:])
     pos20 = (px - lo20) / (hi20 - lo20) if hi20 > lo20 else 0.5
     ma5, ma10, ma20, ma60 = (_ma(closes, n) for n in (5, 10, 20, 60))

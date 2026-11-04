@@ -155,7 +155,9 @@ def main():
     ap.add_argument("--offline", action="store_true", help="用最近快照重放，不请求网络")
     ap.add_argument("--force", action="store_true", help="强制刷新成分表")
     ap.add_argument("--forecast", action="store_true", help="附加波动率预测与价格区间（较慢）")
-    ap.add_argument("--llm", action="store_true", help="附加 AI 解读（需配置 LLM_API_KEY）")
+    ap.add_argument("--llm", action="store_true",
+                    help="附加 AI 解读（配置 key 后默认启用，此参数保留兼容）")
+    ap.add_argument("--no-llm", action="store_true", help="关闭 AI 解读，只用规则文案")
     ap.add_argument("--user", default=None,
                     help="账号 uid。多用户模式下读写 users/<uid>/ 下的数据；"
                          "不传则使用项目根目录（单用户兼容）")
@@ -300,14 +302,14 @@ def main():
     except Exception as e:
         print(f"[警告] 时段视图生成失败：{e}")
 
-    if args.llm:
+    if not args.no_llm:
         try:
             from ashare import attrib, llm
             if llm.available():
                 ctx["ai"] = attrib.explain(ctx)
             else:
-                print("[提示] 未检测到 LLM_API_KEY，跳过 AI 解读。"
-                      "设置环境变量 LLM_API_KEY 后加 --llm 即可启用。")
+                print("[提示] 未配置 LLM key，AI 解读留空。"
+                      "把 key 写进根目录 llm_key.txt 或设置 LLM_API_KEY 即可自动启用。")
         except Exception as e:
             print(f"[警告] AI 解读失败：{e}")
 
@@ -332,6 +334,50 @@ def main():
             attrs=attrs, forecasts=fcm, portfolio=ctx.get("portfolio"))
     except Exception as e:
         print(f"[警告] 个股诊断失败：{e}")
+
+    # 多日涨跌归因：把每只自选股近 5 日的涨跌拆成「大盘 / 板块 / 个股自身」。
+    # 这是产品差异化的核心 —— 用户问的是「为什么涨/为什么跌」，单日涨跌幅回答不了。
+    try:
+        from ashare import mover
+        wl = ctx.get("watchlist") or {}
+        wq = ctx.get("watch_quotes") or {}
+        codes = [c for c in wl if wq.get(c)]
+        if codes:
+            try:
+                ind_map = industry.fetch()
+            except Exception as _e:
+                print(f"[提示] 行业分类暂不可用，板块项留空：{_e}")
+                ind_map = {}
+            mv, fac = mover.build_many(codes, mapping=ind_map, n=5, names=wl)
+            ctx["movers"] = mv
+            if fac:
+                print(f"[归因] 已拆解 {len(mv)} 只自选股近 5 日涨跌"
+                      f"（日K截至 {fac.get('latest', '?')}，基准为全市场中位数）")
+    except Exception as e:
+        print(f"[警告] 多日归因失败：{e}")
+
+    # 个人点评：交给大模型把画像与归因写成自然语言。
+    # 数字仍由代码算好注入，输出要过数字溯源校验，编造的数字会被打回重写。
+    if not args.no_llm and not ctx.get("offline_ai_written"):
+        try:
+            from ashare import attrib, llm
+            if llm.available():
+                pers = attrib.personal(ctx)
+                if pers and pers.get("error"):
+                    print(f"[警告] 个人点评生成失败：{pers['error']}")
+                elif pers and pers.get("profile"):
+                    if ctx.get("profile"):
+                        ctx["profile"].setdefault("persona", {})["ai"] = pers["profile"]
+                    hit = 0
+                    for _code, _m in (ctx.get("movers") or {}).items():
+                        note = (pers.get("stocks") or {}).get(_m.get("name") or "")
+                        if note:
+                            _m["ai"] = note
+                            hit += 1
+                    print(f"[个人点评] 已生成画像点评，{hit} 只自选股附带归因解读"
+                          f"（数字校验{'通过' if pers.get('verified') else '未通过'}）")
+        except Exception as e:
+            print(f"[警告] 个人点评失败：{e}")
 
     # 快照在全部增强完成后保存，这样离线重放也带趋势、预测、时段视图和诊断
     if not args.offline:

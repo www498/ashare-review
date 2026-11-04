@@ -106,6 +106,25 @@ tr.det>td{background:#fbfcfd;border-bottom:1px solid #eef0f3;padding:0}
 .ovn{font-size:12px;color:#5f6368;margin-top:5px;line-height:1.65}
 .ovi{font-size:11.5px;color:#8a8f98;margin-top:6px;line-height:1.7;
   padding-top:6px;border-top:1px dashed #eef0f3}
+.persona{margin-top:16px;padding:18px 20px 17px;border-radius:12px;
+  background:linear-gradient(135deg,#fbfcfe 0%,#f2f6fc 100%);border:1px solid #e4eaf3}
+.persona .pt{font-size:19px;font-weight:700;color:#1f2937;letter-spacing:.3px}
+.persona .ps{font-size:13px;color:#5f6b7a;margin-top:6px;line-height:1.75}
+.persona .pfacts{display:flex;flex-wrap:wrap;gap:12px 30px;margin-top:15px}
+.persona .pfct{font-size:11.5px;color:#8a8f98;line-height:1.5}
+.persona .pfct b{display:block;font-size:15.5px;color:#1f2933;margin:4px 0 2px;
+  font-variant-numeric:tabular-nums;font-weight:600}
+.persona .pfix{margin-top:15px;padding-top:13px;border-top:1px dashed #dbe3ee;
+  font-size:12.8px;color:#3c4043;line-height:1.8}
+.persona .pfix em{font-style:normal;color:#b4530a;font-weight:600;margin-right:6px}
+.persona .pai{margin-top:12px;padding:11px 14px;border-radius:9px;background:#fff;
+  border:1px solid #edf1f7;font-size:12.8px;color:#3c4043;line-height:1.85}
+.persona .pai .tag2{font-size:10.5px;color:#8a8f98;font-weight:400;margin-left:6px}
+details.fold{margin-top:14px;border-top:1px solid #eef0f3;padding-top:11px}
+details.fold summary{cursor:pointer;font-size:12.5px;color:#4a6fa5;padding:3px 0;
+  user-select:none;font-weight:500}
+details.fold summary:hover{color:#2f5fa8}
+details.fold[open] summary{margin-bottom:10px}
 .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
 .tg{font-size:12px;padding:4px 11px;border-radius:999px;cursor:default;font-weight:500}
 .tg.warn{background:#fdecea;color:#b3261e}
@@ -353,6 +372,163 @@ def _delta_chip(v, suffix="", digits=1, invert=False):
     return f'<span class="ar {cls}">{v:+.{digits}f}{suffix}</span>'
 
 
+def _pp(v):
+    """归因分项：带符号的一位小数，缺失显示破折号。"""
+    return f"{v:+.1f}" if v is not None else "—"
+
+
+def chart_attrib(mv):
+    """三段贡献条：大盘 / 板块 / 个股。涨红跌绿，与全站口径一致。"""
+    rows = [("大盘", mv["market"]), ("板块超额", mv["industry_part"]),
+            ("个股超额", mv["firm"])]
+    mx = max([abs(v) for _, v in rows] + [0.1])
+    out = []
+    for lab, v in rows:
+        w = abs(v) / mx * 46
+        col = "#c5221f" if v >= 0 else "#0b8043"
+        left = "left:50%" if v >= 0 else f"left:{50 - max(w, 0.8):.1f}%"
+        out.append(
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;'
+            'font-size:12px;max-width:560px">'
+            f'<div style="width:58px;text-align:right;color:#5f6368">{lab}</div>'
+            '<div style="flex:1;position:relative;height:15px">'
+            '<div style="position:absolute;left:50%;top:0;width:1px;height:15px;'
+            'background:#e6e8eb"></div>'
+            f'<div style="position:absolute;top:3px;height:9px;border-radius:3px;'
+            f'background:{col};{left};width:{max(w, 0.8):.1f}%"></div></div>'
+            f'<div style="width:56px;text-align:right;font-variant-numeric:tabular-nums;'
+            f'color:{col}">{v:+.1f}pp</div></div>')
+    return "".join(out)
+
+
+def _attrib_days(mv):
+    """逐日拆解小表，解释「哪一天最伤/最关键」。"""
+    out = ['<table style="margin-top:8px;font-size:11.5px;width:auto">'
+           '<tr><th>日期</th><th class="n">涨跌</th><th class="n">大盘</th>'
+           '<th class="n">板块</th><th class="n">个股</th>'
+           '<th class="n">量比</th><th>特征</th></tr>']
+    for d in mv["days"]:
+        vr = f'{d["vol_ratio"]:.1f}' if d.get("vol_ratio") else "—"
+        out.append(
+            f'<tr><td style="color:#5f6368">{d["date"][5:]}</td>'
+            f'<td class="n {_c(d["pct"])}">{_pct(d["pct"])}</td>'
+            f'<td class="n">{_pp(d.get("market"))}</td>'
+            f'<td class="n">{_pp(d.get("industry"))}</td>'
+            f'<td class="n">{_pp(d.get("firm"))}</td>'
+            f'<td class="n">{vr}</td><td>{d.get("tag") or ""}</td></tr>')
+    out.append("</table>")
+    return "".join(out)
+
+
+def _sec_watch(h, ctx):
+    """自选股表格 + 每只股票的展开详情（分时 / 近20日 / 诊断 / 多日归因）。"""
+    det_all = ctx.get("detail") or {}
+    h.append('<div class="card"><h2>自选股'
+             '<span class="wbp-slot" data-slot="wl"></span></h2>'
+             '<div class="hint">点击任意一行展开今日分时与近 20 日走势　·　'
+             '偏离所属行业中位数 1 个百分点以内视为跟随板块</div>')
+    h.append('<table><tr><th>名称</th><th class="n">现价</th><th class="n">涨跌幅</th>'
+             '<th class="n">近 5 日</th>'
+             '<th class="n">振幅</th><th class="n">量比</th><th>所属行业</th>'
+             '<th class="n">行业中位数</th><th>判断</th></tr>')
+    for a in ctx["anomalies"]:
+        mv = (ctx.get("movers") or {}).get(a["code"])
+        mv_pct = f'{mv["total"]:+.1f}%' if mv else "—"
+        mv_cls = _c(mv["total"]) if mv else ""
+        at = a.get("attr") or {}
+        verdict = at.get("verdict", "—")
+        vcls = "tag warn2" if verdict in ("强于板块", "弱于板块") else "tag"
+        d = det_all.get(a["code"]) or {}
+        has = bool(d.get("intraday") or d.get("hist20"))
+        caret = '<span class="car">▸</span>' if has else ""
+        h.append(f'<tr class="exp"><td>{a["name"]}{caret}</td>'
+                 f'<td class="n">{a["price"]:,.2f}</td>'
+                 f'<td class="n {_c(a["pct"])}">{_pct(a["pct"])}</td>'
+                 f'<td class="n {mv_cls}">{mv_pct}</td>'
+                 f'<td class="n">{a["amp"]:.1f}%</td><td class="n">{a["vol_ratio"]:.1f}</td>'
+                 f'<td>{at.get("industry", "—")}</td>'
+                 f'<td class="n">{_pct(at["ind_median"]) if at else "—"}</td>'
+                 f'<td><span class="{vcls}">{verdict}</span></td></tr>')
+
+        if not has:
+            continue
+        h.append('<tr class="det"><td colspan="9"><div class="detbox">')
+        if d.get("intraday"):
+            h.append(f'<div class="dcell"><div class="t">今日分时（虚线为昨收 '
+                     f'{d.get("prev_close") or 0:,.2f}）</div>'
+                     f'{spark_intraday(d["intraday"], d.get("prev_close"))}</div>')
+        if d.get("hist20"):
+            vals = [x[1] for x in d["hist20"]]
+            h.append(f'<div class="dcell"><div class="t">近 20 个交易日</div>'
+                     f'{spark_hist(vals)}</div>')
+        bits = []
+        if d.get("prev_pct") is not None:
+            bits.append(f'昨日 <b class="{_c(d["prev_pct"])}">{_pct(d["prev_pct"])}</b>')
+        if at:
+            bits.append(f'{at["industry"]} 行业中位数 {_pct(at["ind_median"])}，'
+                        f'偏离 {at["gap"]:+.2f}pp → {verdict}')
+        if a.get("reasons"):
+            bits.append("触发条件：" + "、".join(a["reasons"]))
+        h.append(f'<div class="dcell" style="min-width:260px;font-size:12.5px;color:#5f6368">'
+                 f'<div class="t">明细</div>' + "<br>".join(bits) + "</div>")
+
+        # 诊断块（整行宽）
+        card = (ctx.get("cards") or {}).get(a["code"])
+        if card:
+            h.append('<div class="dcell" style="flex:1 0 100%;border-top:1px solid #eef0f3;'
+                     'padding-top:12px;margin-top:4px">')
+            h.append(f'<div class="t">诊断</div>'
+                     f'<div style="font-size:12.5px;color:#3c4043;margin-bottom:9px;'
+                     f'max-width:720px">{card["summary"]}</div>')
+            h.append('<div style="display:flex;flex-wrap:wrap;gap:6px 20px;margin-bottom:10px">')
+            for k, v in card["metrics"]:
+                h.append(f'<span style="font-size:12px;color:#8a8f98">{k} '
+                         f'<b style="color:#3c4043;font-variant-numeric:tabular-nums">{v}</b></span>')
+            h.append("</div><ul style='margin:0;padding-left:16px;font-size:12.5px;color:#5f6368'>")
+            for n in card["watch"]:
+                h.append(f"<li style='margin-bottom:3px'>{n}</li>")
+            h.append("</ul></div>")
+
+        # 多日归因：回答「这几天为什么涨/为什么跌」
+        if mv:
+            sign = "up" if mv["total"] >= 0 else "down"
+            h.append('<div class="dcell" style="flex:1 0 100%;border-top:1px solid #eef0f3;'
+                     'padding-top:12px;margin-top:10px">')
+            h.append(f'<div class="t">近 {mv["n"]} 个交易日涨跌归因　'
+                     f'<b class="{sign}" style="font-size:14px">{mv["total"]:+.2f}%</b>'
+                     f'　<span style="color:#8a8f98;font-weight:400;font-size:11.5px">'
+                     f'{mv["start"]} ~ {mv["end"]}　三项相加 = 累计涨跌</span></div>')
+            h.append(chart_attrib(mv))
+            _note = "涨跌 = 大盘 + 板块超额（相对大盘）+ 个股超额（相对板块）"
+            if mv.get("scaled"):
+                _note += "　三项已等比缩放到累计涨跌，可直接相加"
+            h.append(f'<div style="font-size:11px;color:#9aa2ad;margin:3px 0 0 66px;'
+                     f'max-width:600px">{_note}</div>')
+            h.append(_attrib_days(mv))
+            if mv.get("scaled"):
+                h.append('<div style="font-size:10.5px;color:#a8aeb8;margin-top:3px">'
+                         '逐日列为未缩放的原始贡献，合计与上方三项略有差异</div>')
+            h.append(f'<div style="font-size:12.5px;color:#3c4043;line-height:1.8;'
+                     f'max-width:780px;margin-top:9px">{mv["text"]}</div>')
+            if mv.get("ai"):
+                h.append('<div style="margin-top:8px;padding:9px 13px;border-radius:8px;'
+                         'background:#f7f9fc;border:1px solid #e8eef6;font-size:12.5px;'
+                         f'color:#3c4043;line-height:1.8;max-width:780px">{mv["ai"]}'
+                         '<span style="color:#9aa2ad;font-size:10.5px;margin-left:8px">'
+                         'AI 解读</span></div>')
+            h.append("</div>")
+
+        h.append("</div></td></tr>")
+    h.append("</table>")
+    if det_all:
+        h.append('<div class="dhint">共 ' + str(len(ctx["anomalies"])) +
+                 ' 只自选股，其中 ' + str(sum(1 for a in ctx["anomalies"]
+                                              if (det_all.get(a["code"]) or {}).get("intraday"))) +
+                 ' 只带分时数据。</div>')
+    h.append("</div>")
+
+
+
 def _sec_delta(h, ctx):
     d = ctx.get("delta")
     if not d:
@@ -551,6 +727,31 @@ def _sec_profile(h, ctx):
              f'<div class="hint">{span}{c.get("trades_total", 0)} 笔成交，'
              f'FIFO 配对出 {c["n_closed"]} 笔已完成交易，全部来自交割单真实记录</div>')
 
+    per = p.get("persona")
+    if per:
+        h.append('<div class="persona">')
+        h.append(f'<div class="pt">{per["title"]}</div>')
+        h.append(f'<div class="ps">{per["sub"]}')
+        if per.get("pace_note"):
+            h.append(f'<span style="color:#98a0ab">　（{per["pace_note"]}）</span>')
+        h.append("</div>")
+        if per.get("facts"):
+            h.append('<div class="pfacts">')
+            for lab, val, note in per["facts"]:
+                col = ""
+                if val and val[0] == "+":
+                    col = ' style="color:#c5221f"'
+                elif val and val[0] == "-":
+                    col = ' style="color:#0b8043"'
+                h.append(f'<div class="pfct">{lab}<b{col}>{val}</b>{note}</div>')
+            h.append("</div>")
+        if per.get("fix"):
+            h.append(f'<div class="pfix"><em>只改一件事</em>　{per["fix"]}</div>')
+        if per.get("ai"):
+            h.append(f'<div class="pai">{per["ai"]}'
+                     f'<span class="tag2">AI 生成 · 数字来自交割单</span></div>')
+        h.append("</div>")
+
     if p.get("tags"):
         h.append('<div class="tags">')
         for name, basis, level in p["tags"]:
@@ -591,6 +792,7 @@ def _sec_profile(h, ctx):
         h.append("</div>")
 
     if p.get("findings"):
+        h.append(f'<details class="fold"><summary>指标解读（{len(p["findings"])} 条）</summary>')
         h.append('<div class="findings">')
         for title, value, impact in p["findings"]:
             h.append(f'<div class="fd"><div class="fdt">{title}'
@@ -598,7 +800,8 @@ def _sec_profile(h, ctx):
         h.append("</div>")
 
     if p.get("per_stock"):
-        h.append('<table style="margin-top:14px"><tr><th>标的</th>'
+        h.append(f'<details class="fold"><summary>分标的盈亏（{len(p["per_stock"])} 只）</summary>')
+        h.append('<table style="margin-top:0"><tr><th>标的</th>'
                  '<th class="n">已完成</th><th class="n">累计盈亏</th>'
                  '<th class="n">胜率</th><th class="n">平均持有</th></tr>')
         for s in p["per_stock"]:
@@ -611,6 +814,7 @@ def _sec_profile(h, ctx):
         h.append("</table>")
         h.append(f'<div style="{NOTE_STYLE}">按累计盈亏升序，排最前的最需要复盘。'
                  f'同一只票反复亏损，问题通常不在行情而在交易方式。</div>')
+        h.append("</details>")
     h.append("</div>")
 
 
@@ -655,11 +859,15 @@ def render_html(ctx):
              '<button class="f-all" type="button">全部收起</button>'
              '</div>')
 
+    # ---- 个人区：先看「我的钱、我这个人、我关注的票」 ----
+    _sec_portfolio(h, ctx)
+    _sec_profile(h, ctx)
+    _sec_watch(h, ctx)
+
+    # ---- 市场区 ----
     # 日环比（仅收盘：半日指标与昨日全日不可比）
     if s == "pm":
         _sec_delta(h, ctx)
-
-    _sec_portfolio(h, ctx)
 
     _sec_overview(h, ctx)
 
@@ -733,77 +941,6 @@ def render_html(ctx):
                      + "、".join(f'{n}（{p:+.2f}%）' for n, p in bk["names"]) + "</div>")
         h.append("</div>")
 
-    # 自选股（可点开看详情）
-    det_all = ctx.get("detail") or {}
-    h.append('<div class="card"><h2>自选股'
-             '<span class="wbp-slot" data-slot="wl"></span></h2>'
-             '<div class="hint">点击任意一行展开今日分时与近 20 日走势　·　'
-             '偏离所属行业中位数 1 个百分点以内视为跟随板块</div>')
-    h.append('<table><tr><th>名称</th><th class="n">现价</th><th class="n">涨跌幅</th>'
-             '<th class="n">振幅</th><th class="n">量比</th><th>所属行业</th>'
-             '<th class="n">行业中位数</th><th>判断</th></tr>')
-    for a in ctx["anomalies"]:
-        at = a.get("attr") or {}
-        verdict = at.get("verdict", "—")
-        vcls = "tag warn2" if verdict in ("强于板块", "弱于板块") else "tag"
-        d = det_all.get(a["code"]) or {}
-        has = bool(d.get("intraday") or d.get("hist20"))
-        caret = '<span class="car">▸</span>' if has else ""
-        h.append(f'<tr class="exp"><td>{a["name"]}{caret}</td>'
-                 f'<td class="n">{a["price"]:,.2f}</td>'
-                 f'<td class="n {_c(a["pct"])}">{_pct(a["pct"])}</td>'
-                 f'<td class="n">{a["amp"]:.1f}%</td><td class="n">{a["vol_ratio"]:.1f}</td>'
-                 f'<td>{at.get("industry", "—")}</td>'
-                 f'<td class="n">{_pct(at["ind_median"]) if at else "—"}</td>'
-                 f'<td><span class="{vcls}">{verdict}</span></td></tr>')
-
-        if not has:
-            continue
-        h.append('<tr class="det"><td colspan="8"><div class="detbox">')
-        if d.get("intraday"):
-            h.append(f'<div class="dcell"><div class="t">今日分时（虚线为昨收 '
-                     f'{d.get("prev_close") or 0:,.2f}）</div>'
-                     f'{spark_intraday(d["intraday"], d.get("prev_close"))}</div>')
-        if d.get("hist20"):
-            vals = [x[1] for x in d["hist20"]]
-            h.append(f'<div class="dcell"><div class="t">近 20 个交易日</div>'
-                     f'{spark_hist(vals)}</div>')
-        bits = []
-        if d.get("prev_pct") is not None:
-            bits.append(f'昨日 <b class="{_c(d["prev_pct"])}">{_pct(d["prev_pct"])}</b>')
-        if at:
-            bits.append(f'{at["industry"]} 行业中位数 {_pct(at["ind_median"])}，'
-                        f'偏离 {at["gap"]:+.2f}pp → {verdict}')
-        if a.get("reasons"):
-            bits.append("触发条件：" + "、".join(a["reasons"]))
-        h.append(f'<div class="dcell" style="min-width:260px;font-size:12.5px;color:#5f6368">'
-                 f'<div class="t">明细</div>' + "<br>".join(bits) + "</div>")
-
-        # 诊断块（整行宽）
-        card = (ctx.get("cards") or {}).get(a["code"])
-        if card:
-            h.append('<div class="dcell" style="flex:1 0 100%;border-top:1px solid #eef0f3;'
-                     'padding-top:12px;margin-top:4px">')
-            h.append(f'<div class="t">诊断</div>'
-                     f'<div style="font-size:12.5px;color:#3c4043;margin-bottom:9px;'
-                     f'max-width:720px">{card["summary"]}</div>')
-            h.append('<div style="display:flex;flex-wrap:wrap;gap:6px 20px;margin-bottom:10px">')
-            for k, v in card["metrics"]:
-                h.append(f'<span style="font-size:12px;color:#8a8f98">{k} '
-                         f'<b style="color:#3c4043;font-variant-numeric:tabular-nums">{v}</b></span>')
-            h.append("</div><ul style='margin:0;padding-left:16px;font-size:12.5px;color:#5f6368'>")
-            for n in card["watch"]:
-                h.append(f"<li style='margin-bottom:3px'>{n}</li>")
-            h.append("</ul></div>")
-        h.append("</div></td></tr>")
-    h.append("</table>")
-    if det_all:
-        h.append('<div class="dhint">共 ' + str(len(ctx["anomalies"])) +
-                 ' 只自选股，其中 ' + str(sum(1 for a in ctx["anomalies"]
-                                              if (det_all.get(a["code"]) or {}).get("intraday"))) +
-                 ' 只带分时数据。</div>')
-    h.append("</div>")
-
     # 波动区间
     if ctx.get("forecast"):
         h.append('<div class="card"><h2>未来 5 日波动区间</h2>'
@@ -842,8 +979,6 @@ def render_html(ctx):
         for line in view:
             h.append(f"<li>{line}</li>")
         h.append("</ol></div>")
-
-    _sec_profile(h, ctx)
 
     if ctx.get("ai"):
         ai = ctx["ai"]
