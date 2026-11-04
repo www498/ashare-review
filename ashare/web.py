@@ -682,12 +682,14 @@ def _sec_watch(h, ctx):
             h.append(chart_attrib(ex))
             h.append(f'<div class="exline">{ex["verdict"]}</div>')
             sub = [ex["vol"]["text"]]
+            if ex.get("flow_text"):
+                sub.append(ex["flow_text"])
             if ex.get("pos"):
                 sub.append(f'{ex["pos"][0]}，{ex["pos"][1]}')
             if ex.get("gap") is not None and abs(ex["gap"]) >= 0.5:
                 sub.append(f'跳空 {ex["gap"]:+.1f}%')
-            if ex.get("flow"):
-                sub.append(ex["flow"])
+            if ex.get("sector_flow"):
+                sub.append(ex["sector_flow"])
             h.append(f'<div class="exline" style="color:#5f6368">{esc("；".join(sub))}。</div>')
             if ex.get("ind_news"):
                 # 个股相对板块的分解回答不了「板块为什么动」，这行补的就是那一层

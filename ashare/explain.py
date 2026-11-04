@@ -156,6 +156,30 @@ def day_reason(a, ctx, news=None, sector=None):
     # ---- 5) 矛盾与反常：这部分才是真正有信息量的 ----
     flags = []
 
+    # 主力资金与股价的方向对比，比量比硬得多：
+    # 量比只说「放量了」，说不了「谁在买」。同样是放量上涨，
+    # 主力净流入 8 亿和净流出 8 亿是两件相反的事。
+    from . import fundflow as _ff
+    ff = (ctx.get("fundflow") or {}).get(a.get("code"))
+    flow_txt = _ff.describe(ff) if ff else None
+    if ff and ff.get("main") is not None:
+        m = ff["main"] / 1e8
+        if pct >= 1.5 and m <= -0.5:
+            flags.append(("涨了但主力在出", "warn",
+                          f"股价涨 {pct:+.1f}%，主力资金却净流出 {abs(m):.2f} 亿。"
+                          f"这种上涨靠的是中小单在接，主力在借强势减仓，持续性通常不好。"))
+        elif pct <= -1.5 and m >= 0.5:
+            flags.append(("跌了但主力在买", "info",
+                          f"股价跌 {abs(pct):.1f}%，主力资金反而净流入 {m:.2f} 亿。"
+                          f"要么是低位吸筹，要么是有人被套后还在补——区别在于成交量能不能持续放大。"))
+        elif pct >= 2 and m >= 1.0:
+            flags.append(("主力推升", "good",
+                          f"主力净流入 {m:.2f} 亿，股价 {pct:+.1f}%，量价和资金方向一致。"))
+        elif pct <= -2 and m <= -1.0:
+            flags.append(("主力出逃", "warn",
+                          f"主力净流出 {abs(m):.2f} 亿，股价 {pct:+.1f}%，"
+                          f"是资金在主动撤离，不是单纯没人接。"))
+
     # 涨跌停要单独认：它是最强的价格信号，不该被当成「解释不了」的异动
     if is_up_limit:
         flags.append(("封涨停", "good",
@@ -284,14 +308,21 @@ def day_reason(a, ctx, news=None, sector=None):
 
     # 板块层面的消息：回答「这个板块今天为什么动」。
     # 用户问的是「有色金属为什么强」，个股相对板块的分解回答不了这一层。
-    ind_news = [n.get("title") for n in (news or [])
-                if n.get("level") == "行业" and n.get("title")]
+    # 行业级和宏观级都算「板块为什么动」的解释。
+    # 宏观只挂到受它影响的行业（见 news.MACRO_TAGS），所以不会每只票都出现。
+    ind_news = []
+    for n in (news or []):
+        t = n.get("title")
+        if not t or n.get("level") not in ("行业", "宏观"):
+            continue
+        ind_news.append(("宏观｜" if n.get("level") == "宏观" else "") + t)
 
     return {
         "pct": pct, "parts": parts, "total": pct,
         "ind_news": ind_news[:2],
         "market": mkt, "industry_part": ind_part, "firm": firm,
         "vol": {"tag": vol_tag, "tone": vol_tone, "text": vol_text},
-        "pos": pos, "gap": gap, "flow": flow,
+        "pos": pos, "gap": gap, "sector_flow": flow,
         "flags": flags, "verdict": verdict, "lead": lead, "macro": macro_hit,
+        "flow_text": flow_txt, "flow": ff,
     }

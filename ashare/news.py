@@ -71,6 +71,27 @@ IND_KEYS = {
     "家电": ["家电", "空调", "冰箱", "白电", "以旧换新"],
     "建筑": ["基建", "建筑", "开工", "专项债", "城投"],
 }
+# 宏观事件 → 受影响的行业。
+#
+# 为什么不做一个全局宏观模块：那样的结论对每只票都一样，落不到操作上。
+# 但也不能把「中期选举」挂给所有股票——军工和白酒受它的影响完全不同。
+# 所以这里显式写明「这件事影响哪些行业」，匹配到才挂，匹配不到就不提。
+# 只收高确定性的几条，宁可少挂也不要瞎关联。
+MACRO_TAGS = [
+    (("大选", "中期选举", "选举", "特朗普", "白宫", "国会"),
+     ("贵金属", "有色", "军工", "农业"), "风险偏好与美元"),
+    (("美联储", "议息", "点阵图", "非农", "CPI", "鲍威尔"),
+     ("贵金属", "有色", "地产", "电子"), "利率与美元"),
+    (("俄乌", "中东", "地缘", "冲突", "停火", "袭击"),
+     ("贵金属", "军工", "化工", "电力"), "避险与供给"),
+    (("关税", "制裁", "出口管制", "实体清单", "反倾销"),
+     ("电子", "电气机械", "汽车", "机械设备"), "供应链与出口"),
+    (("OPEC", "原油", "油价", "减产", "炼化"),
+     ("化工", "化纤", "汽车", "电力"), "成本与通胀"),
+    (("降准", "降息", "LPR", "社融", "逆回购", "MLF"),
+     ("货币金融", "资本市场", "地产", "建筑"), "流动性"),
+]
+
 GENERAL_KEYS = ["央行", "降准", "降息", "财政", "政策", "证监会", "汇率", "人民币",
                 "美联储", "关税", "PMI", "CPI", "政治局", "国常会", "外资"]
 
@@ -213,6 +234,17 @@ def macro_headlines(items, n=5):
     return out[:n]
 
 
+def _macro_keys(ind):
+    """该行业的宏观驱动词。中期选举只影响贵金属/有色/军工，不该挂给白酒。"""
+    if not ind:
+        return []
+    keys = []
+    for words, inds, _why in MACRO_TAGS:
+        if any(i in ind or ind in i for i in inds):
+            keys.extend(words)
+    return list(dict.fromkeys(keys))
+
+
 def attach(items, targets, limit=3, spread=3):
     """把快讯挂到每一只自选股上，而不是单独列成一个模块。
 
@@ -254,6 +286,29 @@ def attach(items, targets, limit=3, spread=3):
                     used.add(it["title"])
                     taken[it["title"]] = taken.get(it["title"], 0) + 1
                     break
+
+        # 宏观事件排在最后：它解释的是「这个行业今天为什么动」，
+        # 优先级低于点名这只票的消息，但比没有强。
+        # 最多两条，且优先挑真正提到市场影响的——
+        # 「伊朗回应中期选举」和「民主党拿下国会、股市上涨」说的是一件事，
+        # 但后者才有解释力。
+        if len(hits) < limit:
+            cand = []
+            for k in _macro_keys(ind):
+                for it in items:
+                    if it["title"] in used or taken.get(it["title"], 0) >= spread:
+                        continue
+                    if k in it["title"]:
+                        cand.append((it, k))
+                        break
+            mkt = ("股市", "市场", "风险", "利好", "利空", "资金", "涨", "跌")
+            cand.sort(key=lambda x: 0 if any(w in x[0]["title"] for w in mkt) else 1)
+            for it, k in cand[:2]:
+                if it["title"] in used:
+                    continue
+                hits.append({**it, "level": "宏观", "key": k})
+                used.add(it["title"])
+                taken[it["title"]] = taken.get(it["title"], 0) + 1
 
         if hits:
             out[code] = hits[:limit]

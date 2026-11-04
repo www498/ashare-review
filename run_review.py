@@ -404,6 +404,17 @@ def main():
         except Exception as e:
             print(f"[警告] 波动率预测失败：{e}")
 
+    # 个股主力资金流：量比只说明「放量了」，资金流才说明「谁在买」。
+    # 东财按单笔金额拆大单/超大单，是公开数据里最接近「谁在动手」的口径。
+    try:
+        from ashare import fundflow
+        step("拉取个股主力资金流")
+        _codes = [a["code"] for a in ctx.get("anomalies") or []]
+        ctx["fundflow"] = fundflow.fetch_many(_codes)
+        print(f"[资金流] 拿到 {len(ctx['fundflow'])}/{len(_codes)} 只")
+    except Exception as e:
+        print(f"[警告] 资金流获取失败：{e}")
+
     # 个股诊断：位置 / 均线 / 量能 / 相对行业 / 波动率 / 持仓风险
     # 必须在保存快照之前算：否则离线重放拿不到 cards，看板的诊断块会整块消失。
     try:
@@ -467,7 +478,8 @@ def main():
                 at = a.get("attr") or {}
                 _targets[a["code"]] = {"name": a.get("name") or "",
                                        "industry": at.get("industry") or ""}
-            _per = news_mod.attach(_items, _targets)
+            # limit=4：个股 1 条 + 行业 1 条 + 宏观 1 条，留一格余量
+            _per = news_mod.attach(_items, _targets, limit=4)
             _n = 0
             for _code, _arr in _per.items():
                 _card = (ctx.get("cards") or {}).get(_code)
