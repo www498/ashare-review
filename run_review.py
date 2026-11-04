@@ -278,6 +278,18 @@ def main():
                 quotes=ctx.get("watch_quotes"))
             if ctx.get("profile"):
                 print(f"[画像] 已分析 {ctx['profile']['core']['trades_total']} 笔历史交易")
+
+            # 当日逐笔复盘：这一手该不该买/卖，为什么
+            try:
+                from ashare import journal
+                jr = journal.build(_d, _col,
+                                   trades=(ctx.get("profile") or {}).get("trades"))
+                if jr:
+                    ctx["journal"] = jr
+                    print(f"[交易复盘] {jr['day']} 共 {jr['summary']['n']} 手"
+                          f"（买 {jr['summary']['buys']} / 卖 {jr['summary']['sells']}）")
+            except Exception as e:
+                print(f"[警告] 当日交易复盘失败：{e}")
     except Exception as e:
         print(f"[警告] 交易画像生成失败：{e}")
 
@@ -353,6 +365,21 @@ def main():
             if fac:
                 print(f"[归因] 已拆解 {len(mv)} 只自选股近 5 日涨跌"
                       f"（日K截至 {fac.get('latest', '?')}，基准为全市场中位数）")
+
+            # 交易人格代号要用到「板块解释力」与「集中度」，所以在归因之后算
+            if ctx.get("profile"):
+                try:
+                    from ashare import profile as prof_mod
+                    ctx["profile"]["mbti"] = prof_mod.mbti(
+                        ctx["profile"].get("core") or {},
+                        ctx["profile"].get("per_stock"),
+                        movers=ctx.get("movers"),
+                        positions=ctx.get("positions"),
+                        quotes=ctx.get("watch_quotes"))
+                    print(f"[人格] 代号 {ctx['profile']['mbti']['code']} "
+                          f"（{ctx['profile']['mbti']['name']}）")
+                except Exception as e:
+                    print(f"[警告] 交易人格计算失败：{e}")
     except Exception as e:
         print(f"[警告] 多日归因失败：{e}")
 

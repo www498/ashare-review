@@ -235,7 +235,14 @@ def persona(c, per_stock, tags=None):
     if wr is None or pf is None:
         style, style_note = "样本不足", "交易记录还不够多，先积累到 20 笔以上再谈风格"
     elif wr >= 0.55 and pf >= 1.5:
-        style, style_note = "又准又狠", "既能挑对，也能让盈利跑得比亏损远 —— 这是最稀缺的组合"
+        # 盈亏比高不代表「让利润跑」：如果是靠选股准、同时亏损单反而拖得更久，
+        # 那是另一种画像，不能笼统说成「又准又狠」，否则和下面的 C 维度自相矛盾
+        if hw and hl and hl > hw * 1.3:
+            style = "准但拖亏"
+            style_note = ("胜率和盈亏比都好看，但亏损单拿得比盈利单久 —— "
+                          "钱是靠挑得准赚来的，不是靠拿得住")
+        else:
+            style, style_note = "又准又狠", "既能挑对，也能让盈利跑得比亏损远 —— 这是最稀缺的组合"
     elif wr >= 0.55:
         style, style_note = "准但保守", "十次有六次以上做对，可惜赢得不够大，利润被提前落袋"
     elif pf >= 1.5:
@@ -384,6 +391,107 @@ def playbook(c, trades, per_stock, positions=None, quotes=None):
                 "tone": "info",
             })
     return out
+
+
+NICK = {
+    ("F", "C"): "快刀手",
+    ("F", "R"): "狙击手",
+    ("S", "C"): "守株人",
+    ("S", "R"): "钓鱼者",
+}
+
+
+def _clamp(x, lo=0.0, hi=1.0):
+    return max(lo, min(hi, x))
+
+
+def mbti(c, per_stock, movers=None, positions=None, quotes=None):
+    """交易人格四维代号，MBTI 式的四个字母 + 强弱条。
+
+    四个维度都来自已有指标，不引入新计算：
+      节奏 F/S  平均持有天数（≤7 天为快）
+      归因 B/A  板块能解释多少涨跌（相对大盘超额 vs 个股超额）
+      盈亏 C/R  亏损单比盈利单拿得久 → 截断利润(C)；反之让利润跑(R)
+      持仓 K/D  单票最大占比（≥40% 为集中）
+
+    字母顺序固定 F/S → B/A → C/R → K/D，方便一句话传播。
+    """
+    dims = []
+
+    # 1) 节奏
+    h = c.get("hold_avg")
+    if h is None:
+        dims.append({"dim": "节奏", "letter": "—", "pct": 0.5, "note": "无数据"})
+        pace = None
+    else:
+        fast = h <= 7
+        dims.append({
+            "dim": "节奏", "letter": "F" if fast else "S",
+            "left": "F 出手快", "right": "S 拿得久",
+            "pct": _clamp(0.5 + (h - 7) / 30),
+            "note": f"平均 {h:.1f} 天",
+        })
+        pace = "F" if fast else "S"
+
+    # 2) 归因：板块解释力
+    if movers:
+        vals = []
+        for m in movers.values():
+            ind, firm = abs(m.get("industry_part") or 0), abs(m.get("firm") or 0)
+            if ind + firm > 0.3:
+                vals.append(ind / (ind + firm))
+        if vals:
+            share = sum(vals) / len(vals)
+            dims.append({
+                "dim": "归因", "letter": "B" if share >= 0.5 else "A",
+                "left": "B 跟板块", "right": "A 走独立",
+                "pct": _clamp(1 - share),
+                "note": f"板块解释 {share:.0%}",
+            })
+        else:
+            dims.append({"dim": "归因", "letter": "—", "pct": 0.5, "note": "无归因数据"})
+    else:
+        dims.append({"dim": "归因", "letter": "—", "pct": 0.5, "note": "无归因数据"})
+
+    # 3) 盈亏处理
+    hw, hl = c.get("hold_win"), c.get("hold_loss")
+    if hw and hl:
+        ratio = hl / hw
+        cut = ratio >= 1.3
+        dims.append({
+            "dim": "盈亏", "letter": "C" if cut else "R",
+            "left": "C 截断利润", "right": "R 让利润跑",
+            "pct": _clamp(0.5 - (ratio - 1.3) / 2),
+            "note": f"亏 {hl:.0f} 天 / 盈 {hw:.0f} 天",
+        })
+    else:
+        cut = None
+        dims.append({"dim": "盈亏", "letter": "—", "pct": 0.5, "note": "无数据"})
+
+    # 4) 持仓集中度
+    share = None
+    if positions and quotes:
+        mv = {}
+        for code, pos in positions.items():
+            px = (quotes.get(code) or {}).get("price")
+            if px and pos.get("shares"):
+                mv[code] = px * pos["shares"]
+        tot = sum(mv.values())
+        if tot > 0:
+            share = max(mv.values()) / tot
+    if share is not None:
+        dims.append({
+            "dim": "持仓", "letter": "K" if share >= 0.4 else "D",
+            "left": "K 集中", "right": "D 分散",
+            "pct": _clamp(0.5 - (share - 0.4) / 0.5),
+            "note": f"最大 {share:.0%}",
+        })
+    else:
+        dims.append({"dim": "持仓", "letter": "—", "pct": 0.5, "note": "无持仓"})
+
+    code = "".join(d["letter"] for d in dims if d["letter"] != "—")
+    name = NICK.get((pace, "C" if cut else "R")) if pace and cut is not None else "观察中"
+    return {"code": code or "—", "name": name, "dims": dims}
 
 
 def _tags(c, per_stock):

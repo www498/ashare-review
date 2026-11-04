@@ -226,10 +226,16 @@ def load(verbose=False):
         pass
 
     if not mapping:
-        # 真的什么都没有（既无自选股也无持仓），才回退到默认清单
-        return dict(C.WATCHLIST), {}, {
-            "source": "config.py（无自选股与持仓）" if fp else "config.py",
-            "file": fp, "skipped": skipped, "unnamed": unnamed, "pos": 0}
+        # 只有「文件根本不存在」才回退到内置清单（首次使用）。
+        # 文件存在但为空，说明是用户自己删空的 —— 再塞回 8 只默认股，
+        # 表现就是「删了又回来」，这是删除功能看起来失效的直接原因。
+        if not fp:
+            return dict(C.WATCHLIST), {}, {
+                "source": "config.py", "file": None,
+                "skipped": skipped, "unnamed": unnamed, "pos": 0}
+        return {}, {}, {
+            "source": os.path.basename(fp) + "（已清空）", "file": fp,
+            "skipped": skipped, "unnamed": unnamed, "pos": 0}
 
     if verbose:
         extra = f"，其中 {len(positions)} 只有持仓" if positions else ""

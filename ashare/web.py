@@ -128,6 +128,28 @@ tr.det>td{background:#fbfcfd;border-bottom:1px solid #eef0f3;padding:0}
 .pbk .what{flex:1;font-size:12.5px;color:#4a5058;line-height:1.8}
 .pbk .row.pb-good .when{color:#0b7a45}
 .pbk .row.pb-info .when{color:#3f5fa8}
+table.jn td.jn-why{font-size:11.5px;color:#6b7280;line-height:1.65;max-width:400px}
+.jn-tag{font-size:11.5px;padding:2px 8px;border-radius:4px;font-weight:500;white-space:nowrap}
+.jn-bad2{background:#fdecea;color:#b3261e}
+.jn-bad{background:#fff4e5;color:#b4530a}
+.jn-mid{background:#f1f3f6;color:#5f6368}
+.jn-good{background:#e8f5ee;color:#0b7a45}
+.jn-good2{background:#dff2e7;color:#0b7a45}
+.mbti{display:flex;gap:30px;align-items:center;flex-wrap:wrap;margin-top:14px;
+  padding:16px 18px;border-radius:12px;background:#f7f9fc;border:1px solid #e8eef6}
+.mbti .code{font-size:30px;font-weight:800;letter-spacing:7px;color:#243043;
+  font-variant-numeric:tabular-nums;line-height:1}
+.mbti .nick{font-size:12.5px;color:#5f6b7a;margin-top:7px;letter-spacing:.5px}
+.mbti .dims{flex:1;min-width:300px}
+.mbti .dim{display:flex;align-items:center;gap:9px;margin-bottom:7px;font-size:11px;
+  color:#8a8f98}
+.mbti .dim:last-child{margin-bottom:0}
+.mbti .bar{flex:1;height:5px;background:#e6ebf3;border-radius:3px;position:relative}
+.mbti .bar i{position:absolute;top:-3px;width:11px;height:11px;border-radius:50%;
+  background:#4a6fa5;box-shadow:0 0 0 2px #f7f9fc;transform:translateX(-50%)}
+.mbti .bar s{position:absolute;left:50%;top:-2px;width:1px;height:9px;
+  background:#cfd7e3;text-decoration:none}
+.mbti .note{width:92px;text-align:right;color:#6b7686;font-variant-numeric:tabular-nums}
 details.fold{margin-top:14px;border-top:1px solid #eef0f3;padding-top:11px}
 details.fold summary{cursor:pointer;font-size:12.5px;color:#4a6fa5;padding:3px 0;
   user-select:none;font-weight:500}
@@ -428,6 +450,40 @@ def _attrib_days(mv):
     return "".join(out)
 
 
+def _sec_journal(h, ctx):
+    """当日逐笔复盘：这一手该不该买 / 该不该卖，为什么。"""
+    j = ctx.get("journal")
+    if not j:
+        return
+    s = j["summary"]
+    h.append('<div class="card"><h2>今日交易复盘'
+             f'<span style="font-size:12px;font-weight:400;color:#8a8f98;margin-left:10px">'
+             f'{j["day"]}　{s["n"]} 手　买入 {s["buys"]} / 卖出 {s["sells"]}</span></h2>')
+    h.append(f'<div class="hint">{s["head"]}</div>')
+    h.append('<table class="jn"><tr><th>标的</th><th>方向</th><th class="n">成交价</th>'
+             '<th class="n">数量</th><th class="n">当日</th><th class="n">20日分位</th>'
+             '<th class="n">量比</th><th>判断</th><th>依据</th></tr>')
+    tone = {-2: "jn-bad2", -1: "jn-bad", 0: "jn-mid", 1: "jn-good", 2: "jn-good2"}
+    for r in j["rows"]:
+        cls = tone.get(r["score"], "jn-mid")
+        buy = r["action"] == "buy"
+        side, side_cls = ("买入", "up") if buy else ("卖出", "down")
+        vr = f'{r["vol_ratio"]:.1f}' if r.get("vol_ratio") else "—"
+        why = "<br>".join(r["reasons"])
+        h.append(f'<tr><td>{r["name"]}</td><td class="{side_cls}">{side}</td>'
+                 f'<td class="n">{r["price"]:,.2f}</td>'
+                 f'<td class="n">{r["qty"]:,.0f}</td>'
+                 f'<td class="n {_c(r["pct"])}">{_pct(r["pct"])}</td>'
+                 f'<td class="n">{r["pos20"]:.0%}</td>'
+                 f'<td class="n">{vr}</td>'
+                 f'<td><span class="jn-tag {cls}">{r["verdict"]}</span></td>'
+                 f'<td class="jn-why">{why}</td></tr>')
+    h.append("</table>")
+    h.append(f'<div style="{NOTE_STYLE}">判断只依据成交当时的涨跌幅、20 日区间分位、'
+             '均线偏离与量能，不参考之后的走势 —— 不是事后诸葛亮。</div>')
+    h.append("</div>")
+
+
 def _sec_watch(h, ctx):
     """自选股表格 + 每只股票的展开详情（分时 / 近20日 / 诊断 / 多日归因）。"""
     det_all = ctx.get("detail") or {}
@@ -435,6 +491,11 @@ def _sec_watch(h, ctx):
              '<span class="wbp-slot" data-slot="wl"></span></h2>'
              '<div class="hint">点击任意一行展开今日分时与近 20 日走势　·　'
              '偏离所属行业中位数 1 个百分点以内视为跟随板块</div>')
+    if not (ctx.get("anomalies") or []):
+        h.append('<div class="hint" style="padding:14px 0">还没有自选股。'
+                 '点标题右侧的「+ 添加」输入代码即可，支持一次贴多只。</div>')
+        h.append("</div>")
+        return
     h.append('<table><tr><th>名称</th><th class="n">现价</th><th class="n">涨跌幅</th>'
              '<th class="n">近 5 日</th>'
              '<th class="n">振幅</th><th class="n">量比</th><th>所属行业</th>'
@@ -449,7 +510,7 @@ def _sec_watch(h, ctx):
         d = det_all.get(a["code"]) or {}
         has = bool(d.get("intraday") or d.get("hist20"))
         caret = '<span class="car">▸</span>' if has else ""
-        h.append(f'<tr class="exp"><td>{a["name"]}{caret}</td>'
+        h.append(f'<tr class="exp" data-code="{a["code"]}"><td>{a["name"]}{caret}</td>'
                  f'<td class="n">{a["price"]:,.2f}</td>'
                  f'<td class="n {_c(a["pct"])}">{_pct(a["pct"])}</td>'
                  f'<td class="n {mv_cls}">{mv_pct}</td>'
@@ -735,6 +796,21 @@ def _sec_profile(h, ctx):
              f'<div class="hint">{span}{c.get("trades_total", 0)} 笔成交，'
              f'FIFO 配对出 {c["n_closed"]} 笔已完成交易，全部来自交割单真实记录</div>')
 
+    mb = p.get("mbti")
+    if mb and mb.get("code") and mb["code"] != "—":
+        h.append('<div class="mbti">')
+        h.append(f'<div style="text-align:center"><div class="code">{mb["code"]}</div>'
+                 f'<div class="nick">{mb["name"]}</div></div>')
+        h.append('<div class="dims">')
+        for d in mb["dims"]:
+            h.append('<div class="dim">'
+                     f'<span style="width:56px;text-align:right">{d.get("left", d["dim"])}</span>'
+                     '<span class="bar"><s></s>'
+                     f'<i style="left:{max(2, min(98, d["pct"] * 100)):.0f}%"></i></span>'
+                     f'<span style="width:66px">{d.get("right", "")}</span>'
+                     f'<span class="note">{d["note"]}</span></div>')
+        h.append("</div></div>")
+
     per = p.get("persona")
     if per:
         h.append('<div class="persona">')
@@ -882,6 +958,7 @@ def render_html(ctx):
 
     # ---- 个人区：先看「我的钱、我这个人、我关注的票」 ----
     _sec_portfolio(h, ctx)
+    _sec_journal(h, ctx)
     _sec_profile(h, ctx)
     _sec_watch(h, ctx)
 

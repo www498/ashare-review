@@ -160,14 +160,24 @@ PANEL_JS = r"""
     fetch('/watchlist').then(function(r){ return r.json(); }).then(function(d){
       var items = d.items || [];
       if(!items.length) return;
+      // 优先按代码匹配（行上有 data-code），名称匹配只作为老看板的兜底。
+      // 行情接口偶尔失败时 items 里 name 为空，纯名称匹配会一个按钮都绑不上。
+      var byCode = {}, byName = {};
+      for(var j=0;j<items.length;j++){
+        byCode[items[j].code] = items[j];
+        if(items[j].name) byName[items[j].name] = items[j];
+      }
       var rows = document.querySelectorAll('tr.exp');
       for(var i=0;i<rows.length;i++){
         (function(tr){
           var first = tr.querySelector('td'); if(!first) return;
+          var code = tr.getAttribute('data-code');
           var txt = first.textContent.replace(/[\u25b8\s]/g, '');
-          var hit = null;
-          for(var j=0;j<items.length;j++){
-            if(items[j].name && txt.indexOf(items[j].name) === 0){ hit = items[j]; break; }
+          var hit = (code && byCode[code]) || null;
+          if(!hit){
+            for(var nm in byName){
+              if(txt.indexOf(nm) === 0){ hit = byName[nm]; break; }
+            }
           }
           if(!hit) return;
           var tds = tr.querySelectorAll('td');
@@ -177,9 +187,28 @@ PANEL_JS = r"""
           b.onclick = function(e){
             e.stopPropagation();
             if(!confirm('把「' + hit.name + '」从自选股里移除？')) return;
+            b.disabled = true;
             fetch('/watchlist', {method:'POST', headers:{'Content-Type':'application/json'},
                                  body: JSON.stringify({action:'remove', codes:[hit.code]})})
-              .then(function(r){ return r.json(); }).then(function(){ location.reload(); });
+              .then(function(r){ return r.json(); })
+              .then(function(res){
+                var done = (res.removed || []).indexOf(hit.code) >= 0;
+                if(!done){
+                  // 后端没删掉就别动页面，否则看起来像成功了、刷新又回来
+                  b.disabled = false;
+                  alert(res.error || res.msg || '删除失败，请重试');
+                  return;
+                }
+                var next = tr.nextElementSibling;
+                if(next && next.classList.contains('det')){
+                  next.parentNode.removeChild(next);
+                }
+                tr.parentNode.removeChild(tr);
+              })
+              .catch(function(err){
+                b.disabled = false;
+                alert('删除失败：' + err);
+              });
           };
           cell.appendChild(b);
         })(rows[i]);
