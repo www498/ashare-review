@@ -185,30 +185,31 @@ def remove_codes(codes):
 
 def load(verbose=False):
     """返回 (watchlist, positions, meta)。
-    watchlist: {code: name}；positions: {code: {shares, cost}}，只含填了数量的。"""
+    watchlist: {code: name}；positions: {code: {shares, cost}}，只含填了数量的。
+
+    注意顺序：**先合并持仓文件，再判断是否为空**。
+    用户很可能只导入了持仓、没加过自选股，此时 watchlist.txt 只有注释行。
+    如果先判空就回退 config，持仓会被整个丢掉——界面会显示「还没有持仓数据」。
+    """
     fp = _pick_file()
-    if not fp:
-        return dict(C.WATCHLIST), {}, {"source": "config.py", "file": None,
-                                       "skipped": 0, "unnamed": 0, "pos": 0}
     mapping, positions, skipped, unnamed = {}, {}, 0, 0
-    with open(fp, encoding="utf-8-sig", errors="ignore") as f:
-        for line in f:
-            r = parse_line(line)
-            if not r:
-                if line.strip() and CODE_RE.search(line):
-                    skipped += 1
-                continue
-            code, name, shares, cost = r
-            if not name:
-                unnamed += 1
-                name = code
-            mapping[code] = name
-            if shares and cost:
-                positions[code] = {"shares": shares, "cost": cost}
-    if not mapping:
-        return dict(C.WATCHLIST), {}, {"source": "config.py（文件解析为空）", "file": fp,
-                                       "skipped": skipped, "unnamed": unnamed, "pos": 0}
-    # 再合并券商/行情软件导出的持仓表（positions.csv / 持仓.csv ...），持仓数据以此为准
+    if fp:
+        with open(fp, encoding="utf-8-sig", errors="ignore") as f:
+            for line in f:
+                r = parse_line(line)
+                if not r:
+                    if line.strip() and CODE_RE.search(line):
+                        skipped += 1
+                    continue
+                code, name, shares, cost = r
+                if not name:
+                    unnamed += 1
+                    name = code
+                mapping[code] = name
+                if shares and cost:
+                    positions[code] = {"shares": shares, "cost": cost}
+
+    # 券商导出的持仓表（positions.csv / 持仓.csv ...），持仓数据以此为准
     merged_note = None
     try:
         from . import positions as pos_mod
@@ -224,10 +225,17 @@ def load(verbose=False):
     except Exception:
         pass
 
+    if not mapping:
+        # 真的什么都没有（既无自选股也无持仓），才回退到默认清单
+        return dict(C.WATCHLIST), {}, {
+            "source": "config.py（无自选股与持仓）" if fp else "config.py",
+            "file": fp, "skipped": skipped, "unnamed": unnamed, "pos": 0}
+
     if verbose:
         extra = f"，其中 {len(positions)} 只有持仓" if positions else ""
-        src = os.path.basename(fp) + (f" + {merged_note}" if merged_note else "")
-        print(f"从 {src} 读取 {len(mapping)} 只 A 股（忽略 {skipped} 条非个股{extra}）")
+        src = (os.path.basename(fp) if fp else "") + (f" + {merged_note}" if merged_note else "")
+        print(f"从 {src or 'config.py'} 读取 {len(mapping)} 只 A 股"
+              f"（忽略 {skipped} 条非个股{extra}）")
     return mapping, positions, {"source": os.path.basename(fp), "file": fp,
                                 "skipped": skipped, "unnamed": unnamed,
                                 "pos": len(positions), "merged": merged_note}
