@@ -189,30 +189,47 @@ PANEL_JS = r"""
     if(e.key === 'Escape' && mask.classList.contains('on')) mask.classList.remove('on');
   });
 
+  // ArrayBuffer -> base64。xlsx 是 ZIP 二进制，按文本读只会得到 PK 开头的乱码
+  function toB64(buf){
+    var b = new Uint8Array(buf), s = '', chunk = 0x8000;
+    for(var i = 0; i < b.length; i += chunk){
+      s += String.fromCharCode.apply(null, b.subarray(i, i + chunk));
+    }
+    return btoa(s);
+  }
+
   $('wbp-file').addEventListener('change', function(e){
     var f = e.target.files[0]; if(!f) return;
-    $('wbp-err').textContent = '';
+    var err = $('wbp-err'), ta = $('wbp-ta');
+    err.textContent = '';
+    ta.value = '';
+    ta.placeholder = '\u5df2\u9009\u62e9 ' + f.name + '\uff0c\u6b63\u5728\u89e3\u6790\u2026';
+    e.target.value = '';        // 允许重复选择同一个文件
     var r = new FileReader();
     r.onload = function(){
-      $('wbp-ta').value = r.result;
-      $('wbp-ta').placeholder = '\u5df2\u9009 ' + f.name + '\uff0c\u6b63\u5728\u89e3\u6790\u2026';
+      // 一律发送原始字节：后端按文件头判断 xlsx / 按候选编码试 GBK，
+      // 浏览器端猜编码只会把券商导出的 GBK CSV 读成乱码
       fetch('/upload', {method:'POST', headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify({name: f.name, data: r.result, b64: false})})
+                        body: JSON.stringify({name: f.name, data: toB64(r.result)})})
         .then(function(x){ return x.json(); })
         .then(function(d){
-          $('wbp-ta').placeholder = '\u628a\u6301\u4ed3\u8868\u6216\u4ea4\u5272\u5355\u7c98\u5230\u8fd9\u91cc';
-          if(d.error){ $('wbp-err').textContent = d.error; return; }
+          if(d.error){
+            ta.placeholder = '\u628a\u6301\u4ed3\u8868\u6216\u4ea4\u5272\u5355\u7c98\u5230\u8fd9\u91cc';
+            err.textContent = d.error; return;
+          }
           if(!d.rows || !d.rows.length){
-            $('wbp-err').textContent = '\u6587\u4ef6\u91cc\u6ca1\u6709\u8bc6\u522b\u5230\u6caa\u6df1\u4eac A \u80a1\u4ee3\u7801'; return;
+            ta.placeholder = '\u628a\u6301\u4ed3\u8868\u6216\u4ea4\u5272\u5355\u7c98\u5230\u8fd9\u91cc';
+            err.textContent = '\u6587\u4ef6\u91cc\u6ca1\u6709\u8bc6\u522b\u5230\u6caa\u6df1\u4eac A \u80a1\u4ee3\u7801'; return;
           }
           ROWS = d.rows; render(d);
+          ta.placeholder = '\u5df2\u89e3\u6790 ' + f.name + '\uff0c\u6570\u91cf\u4e0e\u6210\u672c\u53ef\u5728\u4e0b\u8868\u76f4\u63a5\u6539';
         })
-        .catch(function(err){
-          $('wbp-ta').placeholder = '\u628a\u6301\u4ed3\u8868\u6216\u4ea4\u5272\u5355\u7c98\u5230\u8fd9\u91cc';
-          $('wbp-err').textContent = '\u4e0a\u4f20\u5931\u8d25\uff1a' + err;
+        .catch(function(ex){
+          ta.placeholder = '\u628a\u6301\u4ed3\u8868\u6216\u4ea4\u5272\u5355\u7c98\u5230\u8fd9\u91cc';
+          err.textContent = '\u4e0a\u4f20\u5931\u8d25\uff1a' + ex;
         });
     };
-    r.readAsText(f, 'UTF-8');
+    r.readAsArrayBuffer(f);
   });
 
   $('wbp-sample').onclick = function(){

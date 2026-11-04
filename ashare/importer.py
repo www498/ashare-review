@@ -297,6 +297,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
+        # 看板把面板脚本内联在 HTML 里，浏览器一旦缓存，改了代码也看不到效果，
+        # 会误以为改动没生效。统一禁缓存。
+        self.send_header("Cache-Control", "no-store, must-revalidate")
         self.end_headers()
         self.wfile.write(data)
 
