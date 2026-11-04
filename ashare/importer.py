@@ -639,7 +639,7 @@ def _bytes_to_text(raw, filename=""):
 
 
 def _report_list(uid=None):
-    """已生成的报表，供面板「切换报表」用。看板优先、按日期倒序。"""
+    """已生成的报表，供页头日期下拉切换用。看板优先、按日期倒序。"""
     rd = _user_reports(uid)
     if not os.path.isdir(rd):
         return []
@@ -702,7 +702,7 @@ def main():
         return
     url = f"http://127.0.0.1:{PORT}"
     print(f"复盘工作台已启动：{url}")
-    print("页面右下角「操作」按钮可导入持仓、重新生成复盘、切换报表。")
+    print("登录后看板右上角可切换日期、生成即时复盘；持仓卡片右侧可导入持仓。")
     print("按 Ctrl+C 停止")
     if "--no-browser" not in sys.argv:
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
