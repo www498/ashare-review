@@ -7,7 +7,7 @@
     python run_review.py --session pm --offline   # 用最近一次快照重放（演示兜底）
     python run_review.py --session pm --force     # 强制刷新成分表
 """
-import argparse, datetime as dt, json, os, sys, time
+import argparse, datetime as dt, json, os, sys, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ashare import (data, analyze, report, history, ladder, industry,
@@ -19,6 +19,16 @@ if hasattr(sys.stdout, "reconfigure"):
 
 def now_str():
     return dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def step(msg):
+    """上报当前阶段。
+
+    网页端靠它显示「正在做什么」，否则三分钟的等待里只有一个转圈，
+    用户无法判断是在算还是已经卡死。前缀 [STEP] 是给 importer 解析用的，
+    不要改格式。flush 必须加：stdout 接管道时默认块缓冲，不加等于没输出。
+    """
+    print(f"[STEP] {msg}", flush=True)
 
 
 def _fmt_ts(ts):
@@ -56,6 +66,7 @@ def prev_trading_volume(sym="sh000001"):
 
 def build(session, force=False):
     t0 = time.time()
+    step("拉取全市场成分与行情")
     uni = data.universe(force=force)
     if not uni:
         raise SystemExit(f"{C.MARKET_NAME} 成分表获取失败，检查网络后重试")
@@ -69,6 +80,7 @@ def build(session, force=False):
     if len(qmap) < len(uni) * 0.8:
         print(f"[警告] 仅取到 {len(qmap)}/{len(uni)} 只，部分停牌或请求失败")
 
+    step("计算宽度、情绪与分布")
     b = analyze.breadth(qmap)
     if not b:
         raise SystemExit("宽度统计为空，数据源异常")
@@ -95,6 +107,7 @@ def build(session, force=False):
     # 行业映射 + 异动归因（首次会拉 baostock 行业表，约 50s，之后缓存 30 天）
     ind_stats = []
     try:
+        step("行业归因（首次约 50 秒，之后读缓存）")
         ind_map = industry.fetch()
         ind_stats = industry.industry_stats(qmap, ind_map)
         anom = industry.attribute_watchlist(anom, ind_map, ind_stats)
@@ -109,6 +122,7 @@ def build(session, force=False):
 
     # 个股详情：分时 + 近20日 + 昨日涨跌幅，供网页点开查看
     try:
+        step("抓取自选股分时与近 20 日")
         det = detail_mod.watch_detail(list(watch.keys()), qmap, watch)
     except Exception as e:
         print(f"[警告] 个股详情抓取失败：{e}")
@@ -269,6 +283,7 @@ def main():
     # 这是本产品的差异点 —— 行情软件只分析市场，不分析用户自己。
     try:
         from ashare import profile as prof, statement as stmt
+        step("分析交割单与交易画像")
         src = stmt.find_statement()
         if src is not None:
             _d, _col = stmt.prepare(src)
@@ -328,6 +343,7 @@ def main():
         try:
             from ashare import attrib, llm
             if llm.available():
+                step("AI 解读盘面（约 30-60 秒）")
                 ctx["ai"] = attrib.explain(ctx)
             else:
                 print("[提示] 未配置 LLM key，AI 解读留空。"
@@ -340,8 +356,51 @@ def main():
             from ashare import forecast as fc
             live_px = {a["code"]: a["price"] for a in ctx["anomalies"]}
             wl = ctx.get("watchlist") or C.WATCHLIST
-            ctx["forecast"] = [r for r in (fc.analyze_symbol(data.sym(c), n, price=live_px.get(c))
-                                           for c, n in wl.items()) if r]
+            # 逐票上报 + 单只超时 + 总预算。
+            # baostock 的日线查询没有超时参数，某只票网络不通时会一直挂着，
+            # 整个复盘就停在这一步 —— 这正是「一直显示生成中」的来源。
+            # 所以宁可少算几只，也不能让整份报告卡死。
+            rows, total = [], len(wl)
+            t_fc = time.time()
+            budget = 150.0
+
+            def _one(sym, nm, px, wait=28.0):
+                """在 daemon 线程里跑，超时就放弃这只。
+
+                不用 ThreadPoolExecutor：它的 atexit 钩子会 join 所有 worker，
+                一旦某只票永久卡在 socket 上，整个进程退不出去。
+                daemon 线程放弃后不影响进程结束。
+                """
+                box = [None]
+
+                def _run():
+                    try:
+                        box[0] = fc.analyze_symbol(sym, nm, price=px)
+                    except Exception:
+                        pass
+
+                th = threading.Thread(target=_run, daemon=True)
+                th.start()
+                th.join(wait)
+                return box[0]
+
+            for i, (c, n) in enumerate(wl.items(), 1):
+                left = budget - (time.time() - t_fc)
+                if left <= 5:
+                    print(f"[提示] 波动率预测超出 {budget:.0f} 秒预算，"
+                          f"跳过剩余 {total - i + 1} 只（不影响其他部分）")
+                    break
+                step(f"波动率预测 {i}/{total} {n}")
+                try:
+                    r = _one(data.sym(c), n, live_px.get(c))
+                except Exception:
+                    print(f"[提示] {n} 波动率预测超时，跳过")
+                    r = None
+                if r:
+                    rows.append(r)
+            ctx["forecast"] = rows
+            if rows:
+                step(f"波动率预测完成 {len(rows)}/{total}")
         except Exception as e:
             print(f"[警告] 波动率预测失败：{e}")
 
@@ -349,6 +408,7 @@ def main():
     # 必须在保存快照之前算：否则离线重放拿不到 cards，看板的诊断块会整块消失。
     try:
         from ashare import stockcard
+        step("生成个股诊断")
         attrs = {a["code"]: a["attr"] for a in ctx.get("anomalies", []) if a.get("attr")}
         fcm = {r["sym"][2:]: r for r in (ctx.get("forecast") or [])}
         ctx["cards"] = stockcard.build_all(
@@ -361,6 +421,7 @@ def main():
     # 这是产品差异化的核心 —— 用户问的是「为什么涨/为什么跌」，单日涨跌幅回答不了。
     try:
         from ashare import mover
+        step("拆解近 5 日涨跌归因")
         wl = ctx.get("watchlist") or {}
         wq = ctx.get("watch_quotes") or {}
         codes = [c for c in wl if wq.get(c)]
@@ -393,17 +454,28 @@ def main():
     except Exception as e:
         print(f"[警告] 多日归因失败：{e}")
 
-    # 消息面：当天公开财经快讯，挑与自选股所在行业相关的几条
+    # 消息面：当天公开财经快讯，直接挂到每只自选股上，不单独成块。
+    # 单独一块的新闻对用户没用——他看到的是「今天有 8 条消息」，
+    # 想知道的是「紫金矿业今天为什么跌」，所以必须落到个股。
     try:
         from ashare import news as news_mod
+        step("抓取财经快讯并匹配到个股")
         _items = news_mod.fetch()
         if _items:
-            _mv = ctx.get("movers") or {}
-            _inds = list({m.get("industry") for m in _mv.values() if m.get("industry")})
-            _names = [m.get("name") or "" for m in _mv.values()]
-            _hit = news_mod.match(_items, names=_names, industries=_inds, limit=10)
-            ctx["news"] = {"items": _hit, "total": len(_items)}
-            print(f"[消息面] 当天快讯 {len(_items)} 条，与自选股相关 {len(_hit)} 条")
+            _targets = {}
+            for a in ctx.get("anomalies") or []:
+                at = a.get("attr") or {}
+                _targets[a["code"]] = {"name": a.get("name") or "",
+                                       "industry": at.get("industry") or ""}
+            _per = news_mod.attach(_items, _targets)
+            _n = 0
+            for _code, _arr in _per.items():
+                _card = (ctx.get("cards") or {}).get(_code)
+                if _card:
+                    _card["news"] = _arr
+                    _n += 1
+            ctx["news"] = {"total": len(_items), "stocks": _n}
+            print(f"[消息面] 当天快讯 {len(_items)} 条，命中 {_n} 只自选股")
     except Exception as e:
         print(f"[警告] 消息面抓取失败：{e}")
 
@@ -413,6 +485,7 @@ def main():
         try:
             from ashare import attrib, llm
             if llm.available():
+                step("AI 分析画象与个股归因（约 30-60 秒）")
                 pers = attrib.personal(ctx)
                 if pers and pers.get("error"):
                     print(f"[警告] 个人点评生成失败：{pers['error']}")
@@ -428,14 +501,26 @@ def main():
                     print(f"[个人点评] 已生成画像点评，{hit} 只自选股附带归因解读"
                           f"（数字校验{'通过' if pers.get('verified') else '未通过'}）")
 
-                brief = attrib.news_brief(ctx)
-                if brief and brief.get("summary"):
-                    ctx.setdefault("news", {})["brief"] = brief
-                    print(f"[消息面] 已生成梳理解读（{len(brief.get('watch') or [])} 条关注项）")
+                # 个股级后续关注：落到「紫金矿业未来几天看什么」，
+                # 而不是一份对所有票都一样的宏观摘要。
+                # 全局消息面摘要已经取消——它回答不了「跟我这只票什么关系」，
+                # 还多花一次 30-60 秒的模型调用。
+                step("AI 生成个股后续关注点")
+                outs = attrib.stock_outlook(ctx)
+                if outs:
+                    _hit = 0
+                    for _a in ctx.get("anomalies") or []:
+                        _card = (ctx.get("cards") or {}).get(_a["code"])
+                        _tx = outs.get(_a.get("name") or "")
+                        if _card and _tx:
+                            _card["outlook"] = _tx
+                            _hit += 1
+                    print(f"[个股关注] 已生成 {_hit} 只自选股的后续关注点")
         except Exception as e:
             print(f"[警告] 个人点评失败：{e}")
 
     # 快照在全部增强完成后保存，这样离线重放也带趋势、预测、时段视图和诊断
+    step("保存快照与报告")
     if not args.offline:
         data.save_snapshot(snap_name, ctx)
 
@@ -446,6 +531,8 @@ def main():
     fp = os.path.join(outdir, snap_name + ".md")
     with open(fp, "w", encoding="utf-8") as f:
         f.write(md)
+
+    step("渲染看板")
 
     print("\n" + "=" * 66)
     print(md)

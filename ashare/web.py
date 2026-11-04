@@ -11,6 +11,7 @@
 """
 import argparse
 import datetime as dt
+import html as _html
 import json
 import os
 
@@ -18,6 +19,11 @@ from .data import ROOT
 from . import config as C
 
 MK = C.MARKET_NAME
+
+
+def esc(s):
+    """新闻标题来自外部接口，必须转义后再拼进 HTML。"""
+    return _html.escape(str(s or ""), quote=False)
 
 CSS = """
 *{box-sizing:border-box;margin:0;padding:0}
@@ -135,6 +141,20 @@ table.jn td.jn-why{font-size:11.5px;color:#6b7280;line-height:1.65;max-width:400
 .jn-mid{background:#f1f3f6;color:#5f6368}
 .jn-good{background:#e8f5ee;color:#0b7a45}
 .jn-good2{background:#dff2e7;color:#0b7a45}
+.nwrow{display:flex;gap:9px;align-items:flex-start;padding:6px 0;
+  border-bottom:1px dashed #f0f2f5;font-size:12.5px;line-height:1.7}
+.nwrow:last-of-type{border-bottom:none}
+.nwtag{flex:0 0 auto;font-size:10.5px;padding:1px 7px;border-radius:4px;margin-top:2px;font-weight:500}
+.nw-s{background:#fdecea;color:#b3261e}
+.nw-i{background:#eef2f8;color:#1a4d8f}
+.nw-m{background:#f1f3f6;color:#5f6368}
+.nwtx{flex:1;color:#3c4043}
+.nwtime{flex:0 0 auto;color:#9aa2ad;font-size:11px;font-variant-numeric:tabular-nums}
+.nwfoot{font-size:10.5px;color:#a8aeb8;margin-top:6px}
+.nwempty{font-size:12px;color:#9aa2ad;line-height:1.8;padding:3px 0}
+.outlook{margin-top:9px;padding:9px 13px;border-radius:8px;background:#f7f9fc;
+  border:1px solid #e8eef6;font-size:12.5px;line-height:1.85;color:#3c4043}
+.outlook b{color:#24405f}
 .mbti{display:flex;gap:30px;align-items:center;flex-wrap:wrap;margin-top:14px;
   padding:16px 18px;border-radius:12px;background:#f7f9fc;border:1px solid #e8eef6}
 .mbti .who{text-align:center;flex:0 0 auto}
@@ -585,6 +605,16 @@ def _sec_news(h, ctx):
     h.append("</div>")
 
 
+def _nw_when(n):
+    """消息时间。跨夜的要标出「昨」，否则一列 09:12 和 23:40 看不出先后。"""
+    t = (n.get("time") or "").strip()
+    d = (n.get("date") or "").strip()
+    if not t:
+        return ""
+    today = dt.date.today().strftime("%Y-%m-%d")
+    return ("昨 " + t) if (d and d != today) else t
+
+
 def _sec_watch(h, ctx):
     """自选股表格 + 每只股票的展开详情（分时 / 近20日 / 诊断 / 多日归因）。"""
     det_all = ctx.get("detail") or {}
@@ -658,6 +688,31 @@ def _sec_watch(h, ctx):
             for n in card["watch"]:
                 h.append(f"<li style='margin-bottom:3px'>{n}</li>")
             h.append("</ul></div>")
+
+        # 消息面：挂在这只票的展开区里，不单独成一个模块。
+        # 单列一块的结果是用户看到「今天有 8 条消息」，却不知道跟自己持仓什么关系。
+        nws = (card or {}).get("news") or []
+        outlook = (card or {}).get("outlook")
+        if card:
+            h.append('<div class="dcell" style="flex:1 0 100%;border-top:1px solid #eef0f3;'
+                     'padding-top:12px;margin-top:10px">')
+            h.append('<div class="t">消息面与后续关注</div>')
+            if nws:
+                for n in nws:
+                    lv = n.get("level") or "行业"
+                    cls = {"个股": "nw-s", "行业": "nw-i"}.get(lv, "nw-m")
+                    h.append(f'<div class="nwrow"><span class="nwtag {cls}">{lv}</span>'
+                             f'<span class="nwtx">{esc(n.get("title"))}</span>'
+                             f'<span class="nwtime">{esc(_nw_when(n))}</span></div>')
+                h.append('<div class="nwfoot">来自公开财经快讯（华尔街见闻 / 新浪财经），'
+                         '只取标题，未做事实核验；没有命中个股或行业的条目不会挂在这里</div>')
+            else:
+                h.append('<div class="nwempty">今天的公开快讯里没有与它直接相关的条目。'
+                         '这里只挂提到该股本身、或命中其行业关键词的消息，'
+                         '不拿宏观新闻凑数。</div>')
+            if outlook:
+                h.append(f'<div class="outlook"><b>未来几天关注</b>　{esc(outlook)}</div>')
+            h.append("</div>")
 
         # 多日归因：回答「这几天为什么涨/为什么跌」
         if mv:
@@ -873,7 +928,7 @@ def _sec_overview(h, ctx):
     h.append("</div>")
 
 
-def _sec_profile(h, ctx):
+def _sec_profile(h, ctx, compact=False):
     """交易行为画像。产品差异点：不只分析市场，也分析用户自己。
 
     没有交割单时也渲染卡片：画像必须从成交流水算（持仓表只有「现在持有什么」，
@@ -989,6 +1044,15 @@ def _sec_profile(h, ctx):
             h.append(f'<span class="tg {level}" title="{basis}">{name}</span>')
         h.append("</div>")
 
+    # 主页用 compact：人格、画像速写、应对手册保留，指标矩阵和图表留给单日看板。
+    # 不这么做的话，主页第一屏全是画像，用户要找的「每天的复盘」被挤到第三屏。
+    if compact:
+        h.append(f'<div class="hint" style="margin-top:10px">'
+                 f'累计手续费 {c.get("fee_total") or 0:,.0f} 元'
+                 f'　·　完整指标矩阵与分标的盈亏在单日看板里</div>')
+        h.append("</div>")
+        return
+
     kpis = [("已实现盈亏", f'{c["realized_pnl"]:+,.0f}', "元",
              "up" if c["realized_pnl"] >= 0 else "down")]
     if c.get("unrealized_pnl") is not None:
@@ -1095,7 +1159,8 @@ def render_html(ctx):
     _sec_journal(h, ctx)
     _sec_profile(h, ctx)
     _sec_watch(h, ctx)
-    _sec_news(h, ctx)
+    # 消息面不再单独成块：新闻已经挂到每只自选股的展开区里。
+    # 独立一块只能回答「今天发生了什么」，回答不了「跟我这只票有什么关系」。
 
     # ---- 市场区 ----
     # 日环比（仅收盘：半日指标与昨日全日不可比）

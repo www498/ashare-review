@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
@@ -30,7 +31,8 @@ STATE = {}
 
 
 def _blank_state():
-    return {"running": False, "ok": None, "tail": "", "target": None}
+    return {"running": False, "ok": None, "step": "", "tail": "", "target": None,
+            "elapsed": 0}
 
 
 class _as_user:
@@ -342,7 +344,14 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         uid = user["uid"]
-        if path in ("/", "/index.html"):
+        if path in ("/", "/home"):
+            # 主页：画像 + 每天复盘列表 + 生成入口。登录后默认落在这里，
+            # 因为「我今天要看什么」比「上次生成的文件在哪」更接近真实诉求。
+            from .home import render as home_render
+            self._send(200, home_render(username=user["username"], uid=uid),
+                       "text/html; charset=utf-8")
+            return
+        if path == "/index.html":
             idx = os.path.join(_user_reports(uid), "index.html")
             if os.path.exists(idx):
                 self.send_response(302)
@@ -366,13 +375,9 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/watchlist":
             self._send(200, json.dumps({"items": _watch_items(uid)}, ensure_ascii=False))
         elif path == "/open":
-            idx = os.path.join(_user_reports(uid), "index.html")
-            if os.path.exists(idx):
-                self.send_response(302)
-                self.send_header("Location", "/reports/index.html")
-                self.end_headers()
-            else:
-                self._send(404, "还没有报告，先跑一次复盘")
+            self.send_response(302)
+            self.send_header("Location", "/home")
+            self.end_headers()
         elif path.startswith("/reports/"):
             name = os.path.basename(path[len("/reports/"):])
             fp = os.path.join(_user_reports(uid), name)
@@ -715,30 +720,71 @@ def _report_list(uid=None):
 
 
 def _run_review(session="pm", offline=False, uid=None):
-    STATE[uid] = {"running": True, "ok": None, "tail": "正在取数…", "target": None}
-    cmd = [sys.executable, os.path.join(ROOT, "run_review.py"), "--session", session]
+    """跑一次完整复盘，并把阶段进度实时写进 STATE。
+
+    为什么不用 subprocess.run：它要等进程结束才返回全部输出，
+    三分钟的等待里前端只能显示「生成中…」，用户无法判断是在算还是卡死。
+    改成 Popen 逐行读，子进程打印的 [STEP] 立刻变成界面上的当前步骤。
+    """
+    st = {"running": True, "ok": None, "step": "启动中", "tail": "",
+          "target": None, "elapsed": 0}
+    STATE[uid] = st
+    t0 = time.time()
+
+    cmd = [sys.executable, "-u", os.path.join(ROOT, "run_review.py"),
+           "--session", session]
     if session == "pm":
         cmd.append("--forecast")
     if offline:
         cmd.append("--offline")
     if uid:
         cmd += ["--user", uid]          # 子进程里按账号读写，天然隔离
+
+    deadline = t0 + 900                 # 上限 15 分钟，超时主动杀掉而不是无限等
     try:
-        p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
-                           encoding="utf-8", errors="ignore", timeout=600)
-        tail = (p.stdout or "")[-1500:]
-        ok = p.returncode == 0
+        p = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, text=True,
+                             encoding="utf-8", errors="ignore", bufsize=1)
+
+        # 心跳线程：子进程在某个阶段可能几十秒不打印任何东西（比如拉日线），
+        # 只在读到新行时才更新 elapsed 会让界面停在 34 秒，看起来像早就死了。
+        def _tick():
+            while st.get("running"):
+                st["elapsed"] = round(time.time() - t0)
+                time.sleep(1)
+
+        threading.Thread(target=_tick, daemon=True).start()
+
+        lines = []
+        import re as _re
+        for line in p.stdout:
+            lines.append(line)
+            if len(lines) > 500:
+                lines = lines[-500:]
+            # tqdm 进度条用 \r 原地刷新且不换行，会把 [STEP] 拼在它后面。
+            # 所以不能用 startswith，取行内最后一个 [STEP] 之后的内容。
+            m = _re.search(r"\[STEP\]\s*(.+?)\s*$", line)
+            if m:
+                st["step"] = m.group(1)
+            st["elapsed"] = round(time.time() - t0)
+            if time.time() > deadline:
+                p.kill()
+                st["step"] = "超时已中止"
+                break
+        rc = p.wait()
+        tail = "".join(lines)[-1500:]
+        ok = rc == 0
         target = None
         if ok:
-            import re as _re
-            m = _re.findall(r"dashboard_(\d{8}_(?:am|pm))\.html", p.stdout or "")
+            m = _re.findall(r"dashboard_(\d{8}_(?:am|pm))\.html", "".join(lines))
             if m:
                 target = f"/reports/dashboard_{m[-1]}.html"
-        STATE[uid] = {"running": False, "ok": ok, "target": target,
-                      "tail": tail if tail.strip() else (p.stderr or "")[-800:]}
+        st.update({"running": False, "ok": ok, "target": target,
+                   "elapsed": round(time.time() - t0),
+                   "tail": tail if tail.strip() else f"exit={rc}"})
     except Exception as e:
-        STATE[uid] = {"running": False, "ok": False, "target": None,
-                      "tail": f"执行失败：{e}"}
+        st.update({"running": False, "ok": False, "target": None,
+                   "elapsed": round(time.time() - t0), "tail": f"执行失败：{e}"})
 
 
 def main():

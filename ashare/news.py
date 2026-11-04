@@ -32,17 +32,44 @@ from .data import ROOT
 CACHE_DIR = os.path.join(ROOT, "data")
 HDRS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
+# 取 80 条：40 条只够覆盖当天几小时，早上跑的时候根本看不到前一晚的消息。
+# 用户关心的「昨天晚上的事对今天有什么影响」需要跨夜的时间窗口。
 WALLS = ("https://api-one.wallstcn.com/apiv1/content/lives"
-         "?channel=global-channel&limit=40")
+         "?channel=global-channel&limit=80")
 SINA = ("https://feed.mix.sina.com.cn/api/roll/get"
-        "?pageid=153&lid=2516&num=40&page=1")
+        "?pageid=153&lid=2516&num=80&page=1")
 
-# 行业 -> 新闻关键词。用于把新闻和自选股挂钩，避免把不相关的宏观条目硬塞进来
+# 行业 -> 新闻关键词。用于把新闻和自选股挂钩，避免把不相关的宏观条目硬塞进来。
+# 覆盖要尽量宽：漏掉一个行业，那个行业的自选股就永远显示「没有相关消息」，
+# 用户会以为功能坏了。宁可多匹配几条，也不要整块空着。
 IND_KEYS = {
-    "贵金属": ["黄金", "白银", "避险", "美联储", "降息", "加息", "金价", "央行购金"],
-    "有色金属": ["铜", "铝", "锂", "钴", "镍", "稀土", "有色金属", "矿", "冶炼", "库存"],
-    "电子设备": ["半导体", "芯片", "算力", "光模块", "AI", "人工智能", "存储", "晶圆", "英伟达"],
-    "专用设备": ["设备", "光刻", "光伏", "锂电", "产能", "招标"],
+    "贵金属": ["黄金", "白银", "避险", "金价", "央行购金", "美元指数"],
+    "有色": ["铜", "铝", "锂", "钴", "镍", "稀土", "有色金属", "矿", "冶炼", "库存",
+             "LME", "碳酸锂", "氧化铝", "钼"],
+    "化纤": ["化纤", "涤纶", "PTA", "聚酯", "长丝", "粘胶", "氨纶"],
+    "电子": ["半导体", "芯片", "算力", "光模块", "AI", "人工智能", "存储", "晶圆",
+             "英伟达", "台积电", "封测", "消费电子", "面板"],
+    "电气机械": ["光伏", "组件", "硅料", "逆变器", "储能", "装机", "锂电", "电池",
+                 "电机", "风电"],
+    "设备": ["设备", "光刻", "机床", "招标", "产能", "工程机械"],
+    "货币金融": ["银行", "信贷", "贷款", "存款", "净息差", "LPR", "拨备", "降准", "社融"],
+    "资本市场": ["券商", "证券", "两融", "IPO", "投行", "经纪", "成交额", "注册制"],
+    "保险": ["保险", "保费", "寿险", "财险", "险资"],
+    "医药": ["医药", "创新药", "集采", "医保", "药监", "临床", "CXO", "疫苗", "器械"],
+    "汽车": ["汽车", "整车", "新能源车", "销量", "车企", "乘用车", "智驾", "零部件"],
+    "煤炭": ["煤炭", "动力煤", "焦煤", "秦皇岛", "煤价"],
+    "黑色": ["钢铁", "螺纹钢", "铁矿", "钢价", "粗钢"],
+    "地产": ["地产", "楼市", "房贷", "土地", "房企", "竣工", "销售面积"],
+    "食品": ["白酒", "食品", "调味品", "乳业", "啤酒", "消费复苏"],
+    "饮料": ["白酒", "饮料", "啤酒", "乳业"],
+    "计算机": ["软件", "信创", "云计算", "数据要素", "网络安全", "大模型"],
+    "通信": ["5G", "运营商", "光缆", "卫星", "基站", "6G"],
+    "电力": ["电力", "电价", "火电", "水电", "核电", "用电量", "电改"],
+    "化工": ["化工", "化肥", "纯碱", "农药", "磷矿", "氟化工"],
+    "农业": ["养殖", "生猪", "猪价", "饲料", "种业", "粮食"],
+    "农林": ["养殖", "生猪", "猪价", "饲料", "种业", "粮食"],
+    "家电": ["家电", "空调", "冰箱", "白电", "以旧换新"],
+    "建筑": ["基建", "建筑", "开工", "专项债", "城投"],
 }
 GENERAL_KEYS = ["央行", "降准", "降息", "财政", "政策", "证监会", "汇率", "人民币",
                 "美联储", "关税", "PMI", "CPI", "政治局", "国常会", "外资"]
@@ -61,6 +88,31 @@ def _clean(t):
     return re.sub(r"\s+", " ", t).strip()
 
 
+def _headline(t, n=58):
+    """取一条快讯的「标题」，不要整段正文。
+
+    华尔街见闻的 content_text 常常是几百字的通稿全文（外事会见尤其长），
+    整段塞进页面会把一张卡片撑成一屏，而且真正的信息在第一句。
+    """
+    t = _clean(t)
+    for sep in ("。", "！", "？", "；", "|"):
+        i = t.find(sep)
+        if 8 <= i <= n:
+            return t[:i]
+    return t[:n] + ("…" if len(t) > n else "")
+
+
+def _stamp(ts):
+    """时间戳 → (HH:MM, YYYY-MM-DD)。带日期是为了区分昨晚和今早的消息。"""
+    if not ts:
+        return "", ""
+    try:
+        t = dt.datetime.fromtimestamp(int(ts))
+        return t.strftime("%H:%M"), t.strftime("%Y-%m-%d")
+    except Exception:
+        return "", ""
+
+
 def _from_wallst(rets):
     try:
         r = requests.get(WALLS, headers=HDRS, timeout=12)
@@ -68,13 +120,11 @@ def _from_wallst(rets):
     except Exception:
         return
     for it in items:
-        txt = _clean(it.get("content_text") or it.get("title"))
+        txt = _headline(it.get("title") or it.get("content_text"))
         if not txt or len(txt) < 8:
             continue
-        ts = it.get("display_time")
-        when = (dt.datetime.fromtimestamp(int(ts)).strftime("%H:%M")
-                if ts else "")
-        rets.append({"time": when, "title": txt[:120], "source": "华尔街见闻"})
+        when, day = _stamp(it.get("display_time"))
+        rets.append({"time": when, "date": day, "title": txt, "source": "华尔街见闻"})
 
 
 def _from_sina(rets):
@@ -84,13 +134,11 @@ def _from_sina(rets):
     except Exception:
         return
     for it in items:
-        title = _clean(it.get("title"))
+        title = _headline(it.get("title"))
         if not title:
             continue
-        ts = it.get("ctime")
-        when = (dt.datetime.fromtimestamp(int(ts)).strftime("%H:%M")
-                if ts else "")
-        rets.append({"time": when, "title": title, "source": "新浪财经"})
+        when, day = _stamp(it.get("ctime"))
+        rets.append({"time": when, "date": day, "title": title, "source": "新浪财经"})
 
 
 def fetch(force=False):
@@ -124,6 +172,74 @@ def fetch(force=False):
         except Exception:
             pass
     return uniq
+
+
+def _ind_keys(ind):
+    """行业名 → 关键词。
+
+    行业名来自 baostock，是「货币金融」「电气机械」这种短分类，
+    和口语里的「银行」「光伏」对不上。所以不能精确查表，要双向包含匹配：
+    「资本市场」能命中「资本市场服务」，「电气机械」能带出光伏和电池关键词。
+    没覆盖的行业退化为行业名本身，至少还能靠名字直接匹配标题。
+    """
+    if not ind:
+        return []
+    keys = []
+    for k, v in IND_KEYS.items():
+        if k in ind or ind in k:
+            keys.extend(v)
+    for suf in ("设备", "行业", "制造", "服务", "开采", "加工", "机械"):
+        if ind.endswith(suf) and len(ind) > len(suf):
+            keys.append(ind[:-len(suf)])
+    keys.append(ind)
+    return list(dict.fromkeys(keys))
+
+
+def attach(items, targets, limit=3, spread=3):
+    """把快讯挂到每一只自选股上，而不是单独列成一个模块。
+
+    只认两级别：标题里直接提到这只票（个股），或命中它所属行业的关键词（行业）。
+    **不做宏观兜底**——试过一版，结果是「王毅会见越南外长」被挂到每一只票下面，
+    因为标题里有「政治局」。那种匹配对操作零价值，只会让人不再相信这块内容。
+    没有相关消息就留空，页面会明确写出「今天没有直接相关的消息」。
+
+    spread：同一条新闻最多挂给几只股票。一条行业新闻挂满整个自选股列表，
+    等于没有个性化。
+
+    targets: {code: {"name": 名称, "industry": 行业}}
+    返回 {code: [{title, time, source, level, key}]}
+    """
+    out = {}
+    taken = {}          # 标题 -> 已被几只票占用
+    for code, t in (targets or {}).items():
+        name = (t.get("name") or "").strip()
+        ind = (t.get("industry") or "").strip()
+        hits, used = [], set()
+
+        if len(name) >= 2:
+            for it in items:
+                if name in it["title"] and taken.get(it["title"], 0) < spread:
+                    hits.append({**it, "level": "个股", "key": name})
+                    used.add(it["title"])
+                    taken[it["title"]] = taken.get(it["title"], 0) + 1
+                    break
+
+        if len(hits) < limit:
+            for k in _ind_keys(ind):
+                if len(k) < 2:
+                    continue
+                for it in items:
+                    if (it["title"] in used or k not in it["title"]
+                            or taken.get(it["title"], 0) >= spread):
+                        continue
+                    hits.append({**it, "level": "行业", "key": k})
+                    used.add(it["title"])
+                    taken[it["title"]] = taken.get(it["title"], 0) + 1
+                    break
+
+        if hits:
+            out[code] = hits[:limit]
+    return out
 
 
 def match(items, codes=None, names=None, industries=None, limit=8):

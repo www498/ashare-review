@@ -249,6 +249,92 @@ SYSTEM_NEWS = """你在帮一个 A 股投资者做消息面梳理。会给你两
 """
 
 
+SYSTEM_OUTLOOK = """你在帮一个 A 股投资者盯着他自选股的消息面。
+会给你若干只股票，每只带：所属行业、近 5 日涨跌归因（板块超额 / 个股超额）、
+以及当天与它相关的公开快讯标题（只有标题，没有正文）。
+
+对每一只股票，输出 60~90 字，只回答两件事：
+1) 这些消息落在它的哪个环节上——成本、需求、政策、还是单纯情绪；
+2) 未来几天具体盯什么。必须是可以验证的事件或数据，
+   例如「LME 铜库存周报」「美联储议息点阵图」「月度装机数据」，
+   不要写「关注政策变化」「留意市场情绪」这种谁都能说的空话。
+
+硬性规则：
+- 只能复述给定标题里的事实，不得补充标题之外的细节、数字或因果链条。
+- 不预测涨跌，不给买卖建议，不写目标价。
+- 消息与该股关系牵强的，直说「关联不大」，不要硬凑。
+- 只输出给了快讯的股票，没给的不要凭空生成。
+
+输出 JSON，不要 markdown：
+{"stocks": [{"name": "股票名称", "outlook": "该股未来几天的关注点"}]}
+"""
+
+
+def stock_outlook(ctx, limit=8):
+    """把每只自选股的「相关快讯 + 归因」交给模型，生成个股级的后续关注点。
+
+    为什么按个股调而不是全市场调一次：用户点开紫金矿业时，
+    要看到的是「铜价和美联储对它的影响」，不是一份通用的宏观摘要。
+    全局摘要看着专业，落到操作上一句话都用不上。
+    """
+    if not llm.available():
+        return {}
+    cards = ctx.get("cards") or {}
+    rows = []
+    for a in ctx.get("anomalies") or []:
+        card = cards.get(a["code"]) or {}
+        nws = card.get("news") or []
+        if not nws:
+            continue
+        mv = (ctx.get("movers") or {}).get(a["code"]) or {}
+        at = a.get("attr") or {}
+        rows.append({
+            "名称": a.get("name"),
+            "行业": at.get("industry"),
+            "近5日涨跌": round(mv.get("total") or 0, 2),
+            "板块超额pp": round(mv.get("industry_part") or 0, 2),
+            "个股超额pp": round(mv.get("firm") or 0, 2),
+            "相关快讯": [n.get("title") for n in nws],
+        })
+    if not rows:
+        return {}
+    rows = rows[:limit]
+
+    facts = {"股票": rows}
+    user = ("以下是需要跟踪的自选股：\n"
+            + json.dumps(facts, ensure_ascii=False, indent=1))
+
+    out = {}
+    for _ in range(2):
+        try:
+            raw = llm.chat([{"role": "system", "content": SYSTEM_OUTLOOK},
+                            {"role": "user", "content": user}],
+                           temperature=0.4, json_mode=True, timeout=90)
+            obj = json.loads(raw)
+        except Exception:
+            return out
+        items = obj.get("stocks") or []
+        if not isinstance(items, list):
+            return out
+        cand = {}
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            nm = (it.get("name") or "").strip()
+            tx = (it.get("outlook") or "").strip()
+            if nm and tx:
+                cand[nm] = tx
+        if not cand:
+            return out
+        bad = llm.verify_numbers(" ".join(cand.values()), facts)
+        if not bad:
+            return cand
+        user += (f"\n\n上一版包含给定数据里找不到的数字：{bad}。"
+                 f"请删掉，或改为复述标题原文。")
+        out = cand          # 第二版仍不通过就用它，页面会标明未经数字校验
+    return out
+
+
 def news_brief(ctx):
     """把当天快讯 + 归因交给模型，生成消息面梳理。无 key 或无线索时返回 None。"""
     if not llm.available():

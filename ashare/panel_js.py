@@ -86,22 +86,39 @@ PANEL_JS = r"""
     var mins = now.getHours() * 60 + now.getMinutes();
     var session = mins < 13 * 60 ? 'am' : 'pm';   // 午盘前出「下午怎么盯」，午后出「明天怎么做」
     var date = today();
+    var t0 = Date.now();
     btn.disabled = true; btn.textContent = '生成中…';
     fetch('/run', {method:'POST', headers:{'Content-Type':'application/json'},
                    body: JSON.stringify({session: session})})
-      .then(function(){ poll(btn, date, session); })
+      .then(function(){ poll(btn, date, session, t0); })
       .catch(function(){ btn.disabled = false; btn.textContent = '生成即时复盘'; });
   }
 
-  function poll(btn, date, session){
+  // 一次完整复盘约 3 分钟（含两次大模型调用）。轮询必须做三件事：
+  // 报出当前阶段、报出已等秒数、以及在网络抖动时继续轮询而不是停摆。
+  // 之前只写「生成中…」，用户无法区分「在算」和「卡死」，断网后按钮还会永久禁用。
+  function poll(btn, date, session, t0){
+    var sec = Math.round((Date.now() - t0) / 1000);
     fetch('/status').then(function(r){ return r.json(); }).then(function(d){
-      if(d.running){ setTimeout(function(){ poll(btn, date, session); }, 1500); return; }
-      if(d.ok){
-        location.href = '/reports/dashboard_' + date + '_' + session + '.html';
-      }else{
-        btn.disabled = false; btn.textContent = '生成即时复盘';
-        alert('生成失败，检查网络后重试。\n\n' + (d.tail || '').slice(-400));
+      if(d.running){
+        if(sec > 780){
+          btn.disabled = false; btn.textContent = '生成即时复盘';
+          alert('已等待 ' + Math.round(sec / 60) + ' 分钟仍未完成。\n\n'
+                + (d.tail || '').slice(-300));
+          return;
+        }
+        btn.textContent = '生成中 ' + sec + 's' + (d.step ? ' · ' + d.step : '');
+        setTimeout(function(){ poll(btn, date, session, t0); }, 1200);
+        return;
       }
+      if(d.ok){
+        location.href = d.target || ('/reports/dashboard_' + date + '_' + session + '.html');
+        return;
+      }
+      btn.disabled = false; btn.textContent = '生成即时复盘';
+      alert('生成失败。\n\n' + ((d.tail || '').slice(-500) || '子进程没有返回输出'));
+    }).catch(function(){
+      setTimeout(function(){ poll(btn, date, session, t0); }, 2500);
     });
   }
 
@@ -381,15 +398,30 @@ PANEL_JS = r"""
     var log = $('wbp-log'); log.style.display = 'block'; log.textContent = '\u6b63\u5728\u53d6\u6570\u2026';
     var now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
     var session = mins < 13 * 60 ? 'am' : 'pm';
+    var t0 = Date.now();
     fetch('/run', {method:'POST', headers:{'Content-Type':'application/json'},
                    body: JSON.stringify({session: session})})
-      .then(function(){ pollRegen(session); });
+      .then(function(){ pollRegen(session, t0); })
+      .catch(function(){ log.textContent = '\u542f\u52a8\u5931\u8d25\uff0c\u68c0\u67e5\u5de5\u4f5c\u53f0\u662f\u5426\u8fd8\u5728\u8fd0\u884c'; });
   }
-  function pollRegen(session){
+  function pollRegen(session, t0){
+    var sec = Math.round((Date.now() - t0) / 1000);
     fetch('/status').then(function(r){ return r.json(); }).then(function(d){
-      $('wbp-log').textContent = d.tail || '\u2026';
-      if(d.running){ setTimeout(function(){ pollRegen(session); }, 1200); return; }
-      if(d.ok){ location.href = '/reports/dashboard_' + today() + '_' + session + '.html'; }
+      var head = sec + 's' + (d.step ? ' \u00b7 ' + d.step : '');
+      $('wbp-log').textContent = head + '\n\n' + (d.tail || '');
+      if(d.running){
+        if(sec > 780){
+          $('wbp-log').textContent = '\u5df2\u7b49\u5f85 ' + Math.round(sec / 60)
+            + ' \u5206\u949f\u4ecd\u672a\u5b8c\u6210\uff0c\u8bf7\u68c0\u67e5\u7f51\u7edc\u540e\u91cd\u8bd5\u3002\n\n' + (d.tail || '');
+          return;
+        }
+        setTimeout(function(){ pollRegen(session, t0); }, 1200);
+        return;
+      }
+      if(d.ok){ location.href = d.target || ('/reports/dashboard_' + today() + '_' + session + '.html'); }
+      else { $('wbp-log').textContent = '\u751f\u6210\u5931\u8d25\uff1a\n\n' + ((d.tail || '').slice(-800) || '\u5b50\u8fdb\u7a0b\u6ca1\u6709\u8fd4\u56de\u8f93\u51fa'); }
+    }).catch(function(){
+      setTimeout(function(){ pollRegen(session, t0); }, 2500);
     });
   }
 
