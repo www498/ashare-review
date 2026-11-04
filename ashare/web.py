@@ -137,9 +137,11 @@ table.jn td.jn-why{font-size:11.5px;color:#6b7280;line-height:1.65;max-width:400
 .jn-good2{background:#dff2e7;color:#0b7a45}
 .mbti{display:flex;gap:30px;align-items:center;flex-wrap:wrap;margin-top:14px;
   padding:16px 18px;border-radius:12px;background:#f7f9fc;border:1px solid #e8eef6}
-.mbti .code{font-size:30px;font-weight:800;letter-spacing:7px;color:#243043;
+.mbti .who{text-align:center;flex:0 0 auto}
+.mbti .who svg{display:block;margin:0 auto 6px}
+.mbti .code{font-size:22px;font-weight:800;letter-spacing:5px;color:#243043;
   font-variant-numeric:tabular-nums;line-height:1}
-.mbti .nick{font-size:12.5px;color:#5f6b7a;margin-top:7px;letter-spacing:.5px}
+.mbti .nick{font-size:12.5px;color:#5f6b7a;margin-top:5px;letter-spacing:.5px}
 .mbti .dims{flex:1;min-width:300px}
 .mbti .dim{display:flex;align-items:center;gap:9px;margin-bottom:7px;font-size:11px;
   color:#8a8f98}
@@ -800,9 +802,13 @@ def _sec_profile(h, ctx):
 
     mb = p.get("mbti")
     if mb and mb.get("code") and mb["code"] != "—":
+        from . import persona_art
         h.append('<div class="mbti">')
-        h.append(f'<div style="text-align:center"><div class="code">{mb["code"]}</div>'
-                 f'<div class="nick">{mb["name"]}</div></div>')
+        h.append('<div class="who">')
+        h.append(persona_art.badge(mb.get("name") or "", size=82))
+        h.append(f'<div class="code">{mb["code"]}</div>'
+                 f'<div class="nick">{mb["name"]}</div>')
+        h.append("</div>")
         h.append('<div class="dims">')
         for d in mb["dims"]:
             h.append('<div class="dim">'
