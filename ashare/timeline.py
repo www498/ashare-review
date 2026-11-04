@@ -202,7 +202,12 @@ def main():
     html = render()
     if not html:
         raise SystemExit("没有历史数据，先运行 python -m ashare.history")
-    out = os.path.join(ROOT, "reports", "history.html")
+    try:
+        from .context import reports_dir
+        _rd = reports_dir()
+    except Exception:
+        _rd = os.path.join(ROOT, "reports")
+    out = os.path.join(_rd, "history.html")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
         f.write(html)

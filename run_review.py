@@ -156,7 +156,14 @@ def main():
     ap.add_argument("--force", action="store_true", help="强制刷新成分表")
     ap.add_argument("--forecast", action="store_true", help="附加波动率预测与价格区间（较慢）")
     ap.add_argument("--llm", action="store_true", help="附加 AI 解读（需配置 LLM_API_KEY）")
+    ap.add_argument("--user", default=None,
+                    help="账号 uid。多用户模式下读写 users/<uid>/ 下的数据；"
+                         "不传则使用项目根目录（单用户兼容）")
     args = ap.parse_args()
+
+    # 必须在任何数据读写之前设定账号，否则会落到错误的目录
+    from ashare import context
+    context.set_user(args.user)
 
     snap_name = dt.date.today().strftime("%Y%m%d") + "_" + args.session
     replayed = False
@@ -332,7 +339,7 @@ def main():
 
     md = report.render(ctx)
 
-    outdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
+    outdir = context.reports_dir()
     os.makedirs(outdir, exist_ok=True)
     fp = os.path.join(outdir, snap_name + ".md")
     with open(fp, "w", encoding="utf-8") as f:

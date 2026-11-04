@@ -28,6 +28,11 @@ PANEL_CSS = """
 #wbp-hd{display:flex;align-items:center;justify-content:space-between;
   padding:16px 20px;border-bottom:1px solid #eef0f3;background:#fafbfc}
 #wbp-hd h3{margin:0;font-size:16px;color:#1f2328;font-weight:600}
+.wbp-who{margin-left:auto;margin-right:10px;font-size:12.5px;color:#5f6368;
+  background:#eef2f8;padding:3px 10px;border-radius:999px}
+.wbp-out{background:none;border:1px solid #dfe3e8;border-radius:7px;color:#5f6368;
+  font-size:12px;padding:4px 11px;cursor:pointer;margin-right:8px;font-family:inherit}
+.wbp-out:hover{border-color:#b3261e;color:#b3261e}
 #wbp-x{background:none;border:none;font-size:22px;line-height:1;color:#8a9099;
   cursor:pointer;padding:0 4px}
 #wbp-x:hover{color:#1f2328}

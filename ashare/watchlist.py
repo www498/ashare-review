@@ -28,8 +28,19 @@ CODE_RE = re.compile(r"(?<!\d)(\d{6})(?!\d)")   # 先抓 6 位数字，再用 is
 NAME_RE = re.compile(r"[\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9*]*")
 
 
+def _candidates():
+    """当前账号的自选股文件候选。多用户下指向 users/<uid>/，
+    单用户兼容模式下回退项目根目录。"""
+    try:
+        from .context import watchlist_file
+        wl = watchlist_file()
+        return [wl, os.path.splitext(wl)[0] + ".csv"]
+    except Exception:
+        return FILES
+
+
 def _pick_file():
-    for f in FILES:
+    for f in _candidates():
         if os.path.exists(f):
             return f
     return None
@@ -72,7 +83,7 @@ def parse_line(line):
 def add_codes(codes):
     """往 watchlist.txt 追加自选股。codes 可为 ['600519', '600519,贵州茅台'] 等形式。
     返回 (added, skipped_existing, invalid)。保留原文件的注释与排版。"""
-    fp = _pick_file() or FILES[0]
+    fp = _pick_file() or _candidates()[0]
     existing, _, _ = load()
     added, dup, bad = [], [], []
     lines = []
@@ -101,32 +112,75 @@ def add_codes(codes):
     return added, dup, bad
 
 
+def _remove_from_positions(want):
+    """从本账号的 positions.csv 删除指定代码，返回真正删掉的集合。
+
+    必须有这一步：持仓股往往只存在于 positions.csv（交割单导入的结果），
+    watchlist.txt 里并没有对应行。只扫 watchlist 会让持仓股「删不掉」——
+    函数返回 removed=[] ，调用方以为没匹配，文件也不动，界面上股票照旧。
+    """
+    import os as _os
+
+    try:
+        from .context import positions_file
+        fp = positions_file()
+    except Exception:
+        fp = _os.path.join(ROOT, "positions.csv")
+    if not _os.path.exists(fp):
+        return set()
+
+    with open(fp, encoding="utf-8-sig", errors="ignore") as f:
+        src = f.readlines()
+    kept, hit = [], set()
+    for line in src:
+        s = line.strip()
+        # 注释行、表头行原样保留
+        if not s or s.startswith("#"):
+            kept.append(line)
+            continue
+        m = CODE_RE.search(s)
+        if m and m.group(1) in want:
+            hit.add(m.group(1))
+            continue
+        kept.append(line)
+    if hit:
+        with open(fp, "w", encoding="utf-8-sig") as f:
+            f.writelines(kept)
+    return hit
+
+
 def remove_codes(codes):
-    """从 watchlist.txt 删除指定代码。注释行与其他标的原样保留。
-    返回 (removed, not_found)。"""
-    fp = _pick_file()
+    """删除自选股：同时清理 watchlist.txt 与 positions.csv。
+    注释行与其他标的原样保留。返回 (removed, not_found)。"""
     want = set()
     for c in codes:
         m = CODE_RE.search(str(c))
         if m:
             want.add(m.group(1))
-    if not fp or not want:
-        return [], sorted(want)
-    with open(fp, encoding="utf-8-sig", errors="ignore") as f:
-        src = f.readlines()
-    kept, removed = [], []
-    for line in src:
-        s = line.strip()
-        if s and not s.startswith("#"):
-            r = parse_line(line)
-            if r and r[0] in want:
-                removed.append(r[0])
-                continue
-        kept.append(line)
-    if removed:
-        with open(fp, "w", encoding="utf-8") as f:
-            f.writelines(kept)
-    return removed, sorted(want - set(removed))
+    if not want:
+        return [], []
+
+    removed = set()
+    fp = _pick_file()
+    if fp:
+        with open(fp, encoding="utf-8-sig", errors="ignore") as f:
+            src = f.readlines()
+        kept = []
+        for line in src:
+            s = line.strip()
+            if s and not s.startswith("#"):
+                r = parse_line(line)
+                if r and r[0] in want:
+                    removed.add(r[0])
+                    continue
+            kept.append(line)
+        if removed:
+            with open(fp, "w", encoding="utf-8") as f:
+                f.writelines(kept)
+
+    # 持仓文件独立清理：两边都可能单独持有某个代码
+    removed |= _remove_from_positions(want)
+    return sorted(removed), sorted(want - removed)
 
 
 def load(verbose=False):
@@ -253,7 +307,7 @@ def main():
     a = ap.parse_args()
 
     if a.init:
-        target = FILES[0]
+        target = _candidates()[0]
         if os.path.exists(target):
             print(f"{target} 已存在，不覆盖")
         else:

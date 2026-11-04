@@ -207,10 +207,19 @@ def _read_file(path):
 
 
 def find_file():
+    """当前账号的持仓文件。多用户下在 users/<uid>/ 里找，
+    单用户兼容模式回退项目根目录。"""
+    try:
+        from .context import user_root
+        base = user_root()
+    except Exception:
+        base = ROOT
     for name in FILES:
-        p = os.path.join(ROOT, name)
+        p = os.path.join(base, name)
         if os.path.exists(p):
             return p
+    if base != ROOT:
+        return None          # 多用户模式不回落到全局，避免读到别人的持仓
     return None
 
 

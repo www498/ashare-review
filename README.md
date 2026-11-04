@@ -48,8 +48,41 @@
 
 ### 交互
 
-双击 `import_positions.bat` 启动本地工作台（`127.0.0.1:8765`），任意页面右下角有齿轮按钮：
-导入持仓 / 重新生成复盘 / 切换时段与历史日期。看板本身仍是零依赖静态页，直接双击也能看。
+双击 `import_positions.bat` 启动本地工作台（`127.0.0.1:8765`），首次进入先注册/登录，
+之后任意页面右下角有齿轮按钮：导入持仓 / 重新生成复盘 / 切换时段与历史日期。
+看板本身仍是零依赖静态页，直接双击也能看。
+
+---
+
+## 账号与多用户
+
+工作台启动后先看到登录页。每个账号拥有独立的数据空间，互不可见：
+
+```
+users/<uid>/
+  watchlist.txt     自选股
+  positions.csv     持仓
+  statement.xlsx    交割单
+  reports/          该账号的看板与报告
+  snapshots/        该账号的快照
+```
+
+行情类公共缓存（日K、成分股、行业分类、历史宽度）仍放在 `data/` 全局共享 ——
+那是市场数据，与账号无关，按账号重复存储只会浪费几十 MB 并拖慢首次运行。
+
+**安全口径（如实说明，不夸大）**
+
+- 密码用 `hashlib.scrypt` 加盐哈希，不存明文也不存可逆形式
+- 会话 token 为 32 字节密码学随机数，默认 7 天过期
+- 服务只监听 `127.0.0.1`，Cookie 未设 `Secure`（本地无 HTTPS）
+- **这不是面向公网的认证系统**，不要直接暴露到公网
+
+**命令行仍支持单用户模式**：不传 `--user` 时读写项目根目录，老用法不受影响；
+传 `--user <uid>` 则读写 `users/<uid>/`：
+
+```bash
+python run_review.py --session pm --user u_9f97fe4f8cf9
+```
 
 ---
 
@@ -172,6 +205,9 @@ ashare/
   panel.py      注入式操作面板（CSS + HTML）
   panel_js.py   面板交互脚本
   importer.py   本地工作台服务（标准库 http.server）
+  auth.py       账号体系（scrypt 哈希、会话、按账号隔离目录）
+  authpage.py   登录/注册页
+  context.py    当前账号上下文，集中解析各模块的读写路径
   llm.py / attrib.py  LLM 解释层（含数字溯源校验，可选）
 
 research/
@@ -180,8 +216,9 @@ research/
   probe_akshare.py 数据源可用性探测
   probe_backup.py  备用数据源探测
 
-data/          运行缓存（不入库）
-reports/       生成的报告与看板（不入库）
+data/          行情公共缓存，所有账号共享（不入库）
+users/<uid>/   各账号的自选股、持仓、交割单、报告（不入库）
+reports/       单用户模式下的报告输出（不入库）
 ```
 
 ---

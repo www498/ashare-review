@@ -41,6 +41,21 @@ h1{font-size:22px;font-weight:600;letter-spacing:-.3px}
 .up{color:#c5221f}.down{color:#0b8043}.flat{color:#5f6368}
 .card{background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:18px 20px;margin-bottom:14px}
 .card h2{font-size:14px;font-weight:600;color:#3c4043;margin-bottom:2px}
+/* 板块折叠：标题可点，整体收起/展开。用 class 控制而非内联 style，
+   避免和各板块自己的内联样式打架 */
+.card > h2{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+.card > h2::before{content:"";display:inline-block;width:0;height:0;flex:0 0 auto;
+  border-left:5px solid #9aa0a8;border-top:4px solid transparent;
+  border-bottom:4px solid transparent;transform:rotate(90deg);
+  transition:transform .18s}
+.card.fold > h2::before{transform:rotate(0deg)}
+.card > h2:hover::before{border-left-color:#2f5fa8}
+.card.fold > *:not(h2){display:none !important}
+.card.fold{padding-bottom:16px}
+.foldbar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px}
+.foldbar button{background:#fff;border:1px solid #dfe3e8;border-radius:7px;
+  color:#5f6368;font-size:12px;padding:5px 12px;cursor:pointer;font-family:inherit}
+.foldbar button:hover{border-color:#2f5fa8;color:#1a4d8f}
 .card .hint{font-size:12px;color:#8a8f98;margin-bottom:14px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:760px){.two{grid-template-columns:1fr}}
@@ -616,6 +631,12 @@ def render_html(ctx):
 
     _sec_index_strip(h, ctx)
 
+    # 板块折叠工具条：放在所有卡片之前
+    h.append('<div class="foldbar" id="foldbar">'
+             '<button class="f-none" type="button">全部展开</button>'
+             '<button class="f-all" type="button">全部收起</button>'
+             '</div>')
+
     # 日环比（仅收盘：半日指标与昨日全日不可比）
     if s == "pm":
         _sec_delta(h, ctx)
@@ -824,6 +845,31 @@ def render_html(ctx):
              "var d=tr.nextElementSibling;"
              "if(!d||!d.classList.contains('det'))return;"
              "d.classList.toggle('open');tr.classList.toggle('on');});});"
+             "var KEY='ashare_fold_'+(document.title||'');"
+             "var saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}"
+             "var cards=document.querySelectorAll('.card');"
+             "cards.forEach(function(c,i){"
+             "var h2=c.querySelector(':scope > h2');if(!h2)return;"
+             "var id=(h2.textContent||'').trim()||('card'+i);"
+             "if(saved[id]){c.classList.add('fold');}"
+             "h2.addEventListener('click',function(){"
+             "c.classList.toggle('fold');"
+             "saved[id]=c.classList.contains('fold');"
+             "try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(e){}"
+             "});});"
+             "var bar=document.getElementById('foldbar');"
+             "if(bar){"
+             "bar.querySelector('.f-all').addEventListener('click',function(){"
+             "cards.forEach(function(c,i){var h2=c.querySelector(':scope > h2');"
+             "if(!h2)return;c.classList.add('fold');"
+             "saved[(h2.textContent||'').trim()||('card'+i)]=true;});"
+             "try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(e){}});"
+             "bar.querySelector('.f-none').addEventListener('click',function(){"
+             "cards.forEach(function(c,i){var h2=c.querySelector(':scope > h2');"
+             "if(!h2)return;c.classList.remove('fold');"
+             "saved[(h2.textContent||'').trim()||('card'+i)]=false;});"
+             "try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(e){}});"
+             "}"
              "</script>")
     h.append("</div></body></html>")
     return "".join(h).replace("{MK}", MK)
@@ -842,7 +888,12 @@ def main():
         ctx = json.load(f)
 
     html = render_html(ctx)
-    out = os.path.join(ROOT, "reports", f"dashboard_{a.date}_{a.session}.html")
+    try:
+        from .context import reports_dir
+        _rd = reports_dir()
+    except Exception:
+        _rd = os.path.join(ROOT, "reports")
+    out = os.path.join(_rd, f"dashboard_{a.date}_{a.session}.html")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
         f.write(html)

@@ -25,7 +25,32 @@ from .data import ROOT
 from .web import CSS
 
 PORT = 8765
-STATE = {"running": False, "ok": None, "tail": "", "target": None}
+# 每个账号独立的运行状态：多人同时在线时，A 的进度不能显示到 B 的面板上
+STATE = {}
+
+
+def _blank_state():
+    return {"running": False, "ok": None, "tail": "", "target": None}
+
+
+class _as_user:
+    """临时把当前线程的账号上下文切到 uid，离开时恢复。
+    watchlist 等模块通过 context 取路径，不切上下文会写到默认目录。"""
+
+    def __init__(self, uid):
+        self.uid = uid
+        self.prev = None
+
+    def __enter__(self):
+        from . import context
+        self.prev = context.current_uid()
+        context.set_user(self.uid)
+        return self
+
+    def __exit__(self, *a):
+        from . import context
+        context.set_user(self.prev)
+        return False
 
 SAMPLE_TEXT = (
     "\u8bc1\u5238\u4ee3\u7801\t\u8bc1\u5238\u540d\u79f0\t\u6301\u4ed3\u6570\u91cf\t\u6210\u672c\u4ef7\t\u73b0\u4ef7\n"
@@ -243,6 +268,26 @@ def _csv(rows):
     return "\n".join(lines)
 
 
+def _cookie_token(handler):
+    """从 Cookie 取会话 token。"""
+    raw = handler.headers.get("Cookie") or ""
+    for part in raw.split(";"):
+        k, _, v = part.strip().partition("=")
+        if k == "sid":
+            return v
+    return None
+
+
+def _current_user(handler):
+    from . import auth
+    return auth.whoami(_cookie_token(handler))
+
+
+def _user_reports(uid):
+    from . import auth
+    return auth.paths(uid)["reports"]
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
@@ -255,12 +300,47 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _send_with_cookie(self, token, obj):
+        """登录成功时下发会话 Cookie。
+        HttpOnly 防止 JS 读取；SameSite=Lax 防 CSRF；
+        未设 Secure 是因为本地服务无 HTTPS，设了浏览器反而不会存。"""
+        body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header(
+            "Set-Cookie",
+            f"sid={token}; HttpOnly; Path=/; SameSite=Lax; Max-Age={7 * 86400}")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         path = urlparse(self.path).path
-        # 根路径直接进看板：页面本身就是操作入口，导入面板以悬浮按钮形式内嵌。
-        # 还没有任何报表时才退回到独立导入页，避免首次使用进到空白页。
+        user = _current_user(self)
+
+        # 登录页与静态登录资源无需鉴权
+        if path in ("/login", "/register"):
+            from .authpage import LOGIN_PAGE
+            self._send(200, LOGIN_PAGE.replace("__CSS__", CSS),
+                       "text/html; charset=utf-8")
+            return
+        if path == "/me":
+            self._send(200, json.dumps(
+                {"user": user, "has_users": __import__(
+                    "ashare.auth", fromlist=["auth"]).count_users() > 0},
+                ensure_ascii=False))
+            return
+
+        # 其余全部需要登录
+        if not user:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        uid = user["uid"]
         if path in ("/", "/index.html"):
-            idx = os.path.join(ROOT, "reports", "index.html")
+            idx = os.path.join(_user_reports(uid), "index.html")
             if os.path.exists(idx):
                 self.send_response(302)
                 self.send_header("Location", "/reports/index.html")
@@ -274,15 +354,16 @@ class Handler(BaseHTTPRequestHandler):
                     .replace("__SAMPLE__", json.dumps(SAMPLE_TEXT, ensure_ascii=False)))
             self._send(200, html, "text/html; charset=utf-8")
         elif path == "/status":
-            self._send(200, json.dumps(STATE, ensure_ascii=False))
+            self._send(200, json.dumps(STATE.get(uid, _blank_state()),
+                                       ensure_ascii=False))
         elif path == "/sample":
             self._send(200, json.dumps({"text": SAMPLE_TEXT}, ensure_ascii=False))
         elif path == "/list":
-            self._send(200, json.dumps({"items": _report_list()}, ensure_ascii=False))
+            self._send(200, json.dumps({"items": _report_list(uid)}, ensure_ascii=False))
         elif path == "/watchlist":
-            self._send(200, json.dumps({"items": _watch_items()}, ensure_ascii=False))
+            self._send(200, json.dumps({"items": _watch_items(uid)}, ensure_ascii=False))
         elif path == "/open":
-            idx = os.path.join(ROOT, "reports", "index.html")
+            idx = os.path.join(_user_reports(uid), "index.html")
             if os.path.exists(idx):
                 self.send_response(302)
                 self.send_header("Location", "/reports/index.html")
@@ -291,18 +372,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(404, "还没有报告，先跑一次复盘")
         elif path.startswith("/reports/"):
             name = os.path.basename(path[len("/reports/"):])
-            fp = os.path.join(ROOT, "reports", name)
+            fp = os.path.join(_user_reports(uid), name)
             if os.path.exists(fp):
                 ctype = ("text/html; charset=utf-8" if name.endswith(".html")
                          else "text/plain; charset=utf-8" if name.endswith(".md")
                          else "application/octet-stream")
                 body = open(fp, encoding="utf-8").read()
-                # 通过服务访问的 HTML 才注入操作面板：此时后端在线，按钮都能真正工作。
-                # 直接双击打开的同一个文件不含面板，保持单文件零依赖。
                 if name.endswith(".html"):
                     try:
                         from .panel_js import inject
-                        body = inject(body)
+                        body = inject(body, username=user["username"])
                     except Exception:
                         pass
                 self._send(200, body, ctype)
@@ -319,7 +398,57 @@ class Handler(BaseHTTPRequestHandler):
             payload = {}
 
         path = urlparse(self.path).path
-        if path == "/parse":
+        from . import auth
+
+        # ---- 认证接口（无需登录）----
+        if path == "/api/register":
+            ok, msg, uid = auth.register(payload.get("username", ""),
+                                         payload.get("password", ""))
+            if not ok:
+                self._send(200, json.dumps({"error": msg}, ensure_ascii=False))
+                return
+            ok2, msg2, token, user = auth.login(payload.get("username", ""),
+                                                payload.get("password", ""))
+            self._send_with_cookie(token, {"ok": True, "msg": msg, "user": user})
+            return
+
+        if path == "/api/login":
+            ok, msg, token, user = auth.login(payload.get("username", ""),
+                                              payload.get("password", ""))
+            if not ok:
+                self._send(200, json.dumps({"error": msg}, ensure_ascii=False))
+                return
+            self._send_with_cookie(token, {"ok": True, "msg": msg, "user": user})
+            return
+
+        if path == "/api/logout":
+            auth.logout(_cookie_token(self))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Set-Cookie",
+                             "sid=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0")
+            body = json.dumps({"ok": True}).encode()
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        # ---- 以下全部需要登录 ----
+        user = _current_user(self)
+        if not user:
+            self._send(401, json.dumps({"error": "登录已失效，请重新登录",
+                                        "need_login": True}, ensure_ascii=False))
+            return
+        uid = user["uid"]
+
+        if path == "/api/password":
+            ok, msg = auth.change_password(user["username"],
+                                           payload.get("old", ""),
+                                           payload.get("new", ""))
+            self._send(200, json.dumps({"ok": ok, "msg" if ok else "error": msg},
+                                       ensure_ascii=False))
+
+        elif path == "/parse":
             text = payload.get("text", "")
             try:
                 watch, pos, meta = pos_mod.parse_text(text)
@@ -378,7 +507,8 @@ class Handler(BaseHTTPRequestHandler):
                              for m in re.finditer(
                                  r"\d{6}(?:\s*[,，]\s*[^\s,，;；\d][^\s,，;；]*)?", codes)]
                 if act == "add":
-                    added, dup, bad = wl_mod.add_codes(codes)
+                    with _as_user(uid):
+                        added, dup, bad = wl_mod.add_codes(codes)
                     msg = []
                     if added:
                         msg.append(f"已添加 {len(added)} 只")
@@ -389,17 +519,16 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, json.dumps(
                         {"ok": True, "msg": "，".join(msg) or "没有变化",
                          "added": added, "dup": dup, "bad": bad,
-                         "items": _watch_items()}, ensure_ascii=False))
+                         "items": _watch_items(uid)}, ensure_ascii=False))
                 elif act == "remove":
-                    removed, nf = wl_mod.remove_codes(codes)
-                    # 持仓里的标的同时从 positions.csv 移除，否则下次又被合并回来
-                    _drop_positions(removed)
+                    with _as_user(uid):
+                        removed, nf = wl_mod.remove_codes(codes)
                     msg = f"已删除 {len(removed)} 只" if removed else "没有匹配的标的"
                     if nf:
                         msg += f"，{len(nf)} 只未找到"
                     self._send(200, json.dumps(
                         {"ok": True, "msg": msg, "removed": removed,
-                         "items": _watch_items()}, ensure_ascii=False))
+                         "items": _watch_items(uid)}, ensure_ascii=False))
                 else:
                     self._send(200, json.dumps({"error": "未知操作"}, ensure_ascii=False))
             except Exception as e:
@@ -411,7 +540,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps({"error": "没有可保存的数据"}, ensure_ascii=False))
                 return
             try:
-                fp = os.path.join(ROOT, "positions.csv")
+                fp = os.path.join(auth.paths(uid)["root"], "positions.csv")
+                os.makedirs(os.path.dirname(fp), exist_ok=True)
                 with open(fp, "w", encoding="utf-8-sig") as f:
                     f.write(_csv(rows))
                 withpos = sum(1 for r in rows if r.get("shares") and r.get("cost"))
@@ -421,11 +551,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps({"error": f"写入失败：{e}"}, ensure_ascii=False))
 
         elif path == "/run":
-            if not STATE["running"]:
+            st = STATE.get(uid) or _blank_state()
+            if not st["running"]:
                 session = payload.get("session")
                 session = session if session in ("am", "pm") else "pm"
                 offline = bool(payload.get("offline"))
-                threading.Thread(target=_run_review, args=(session, offline),
+                threading.Thread(target=_run_review, args=(session, offline, uid),
                                  daemon=True).start()
             self._send(200, json.dumps({"started": True}))
 
@@ -433,12 +564,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, "not found")
 
 
-def _watch_items():
-    """当前自选股清单，带持仓标记与实时价，供面板展示。"""
+def _watch_items(uid=None):
+    """当前账号的自选股清单，带持仓标记与实时价，供面板展示。"""
     try:
         from . import data as data_mod
         from . import watchlist as wl_mod
-        watch, pos, _ = wl_mod.load()
+        with _as_user(uid):
+            watch, pos, _ = wl_mod.load()
         quotes = {}
         try:
             quotes = data_mod.fetch_quotes(list(watch.keys()))
@@ -461,13 +593,15 @@ def _watch_items():
         return []
 
 
-def _drop_positions(codes):
-    """从 positions.csv 删除指定代码。删自选股时同步清理，否则会被重新合并进来。"""
+def _drop_positions(codes, uid=None):
+    """从该账号的 positions.csv 删除指定代码。
+    删自选股时同步清理，否则会被重新合并进来。"""
     if not codes:
         return
     import os as _os
 
-    fp = _os.path.join(ROOT, "positions.csv")
+    from . import auth
+    fp = _os.path.join(auth.paths(uid)["root"], "positions.csv")
     if not _os.path.exists(fp):
         return
     want = set(codes)
@@ -504,9 +638,9 @@ def _bytes_to_text(raw, filename=""):
     return raw.decode("utf-8", errors="ignore")
 
 
-def _report_list():
+def _report_list(uid=None):
     """已生成的报表，供面板「切换报表」用。看板优先、按日期倒序。"""
-    rd = os.path.join(ROOT, "reports")
+    rd = _user_reports(uid)
     if not os.path.isdir(rd):
         return []
     items = []
@@ -532,30 +666,31 @@ def _report_list():
     return items
 
 
-def _run_review(session="pm", offline=False):
-    STATE.update(running=True, ok=None, tail="正在取数…\n", target=None)
+def _run_review(session="pm", offline=False, uid=None):
+    STATE[uid] = {"running": True, "ok": None, "tail": "正在取数…", "target": None}
     cmd = [sys.executable, os.path.join(ROOT, "run_review.py"), "--session", session]
     if session == "pm":
         cmd.append("--forecast")
     if offline:
         cmd.append("--offline")
+    if uid:
+        cmd += ["--user", uid]          # 子进程里按账号读写，天然隔离
     try:
         p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
                            encoding="utf-8", errors="ignore", timeout=600)
         tail = (p.stdout or "")[-1500:]
         ok = p.returncode == 0
-        # 跳转目标从实际产出里解析：离线重放会回退到旧日期，
-        # 按 today() 猜文件名会指向不存在的页面。
         target = None
         if ok:
-            import re
-            m = re.findall(r"dashboard_(\d{8}_(?:am|pm))\.html", p.stdout or "")
+            import re as _re
+            m = _re.findall(r"dashboard_(\d{8}_(?:am|pm))\.html", p.stdout or "")
             if m:
                 target = f"/reports/dashboard_{m[-1]}.html"
-        STATE.update(running=False, ok=ok, target=target,
-                     tail=tail if tail.strip() else (p.stderr or "")[-800:])
+        STATE[uid] = {"running": False, "ok": ok, "target": target,
+                      "tail": tail if tail.strip() else (p.stderr or "")[-800:]}
     except Exception as e:
-        STATE.update(running=False, ok=False, target=None, tail=f"执行失败：{e}")
+        STATE[uid] = {"running": False, "ok": False, "target": None,
+                      "tail": f"执行失败：{e}"}
 
 
 def main():

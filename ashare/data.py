@@ -250,7 +250,8 @@ def market_activity():
 # ---------------- 快照缓存 ----------------
 
 def save_snapshot(name, obj):
-    path = os.path.join(CACHE_DIR, "snapshots")
+    from .context import snapshots_dir
+    path = snapshots_dir()
     os.makedirs(path, exist_ok=True)
     fp = os.path.join(path, name + ".json")
     with open(fp, "w", encoding="utf-8") as f:
@@ -259,7 +260,8 @@ def save_snapshot(name, obj):
 
 
 def load_snapshot(name):
-    fp = os.path.join(CACHE_DIR, "snapshots", name + ".json")
+    from .context import snapshots_dir
+    fp = os.path.join(snapshots_dir(), name + ".json")
     if not os.path.exists(fp):
         return None
     with open(fp, encoding="utf-8") as f:
@@ -269,7 +271,8 @@ def load_snapshot(name):
 def list_snapshots(session=None):
     """已有快照名（形如 20261102_pm），按日期从新到旧。
     session 传 'am'/'pm' 时只返回该时段的。"""
-    path = os.path.join(CACHE_DIR, "snapshots")
+    from .context import snapshots_dir
+    path = snapshots_dir()
     if not os.path.isdir(path):
         return []
     names = [f[:-5] for f in os.listdir(path) if f.endswith(".json")]

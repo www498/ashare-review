@@ -13,15 +13,21 @@ from . import config as C
 
 MK = C.MARKET_NAME
 
-REPORTS = os.path.join(ROOT, "reports")
+def _reports_dir():
+    """按当前账号解析报表目录。模块级常量会在多用户下串到别人的目录。"""
+    try:
+        from .context import reports_dir
+        return reports_dir()
+    except Exception:
+        return os.path.join(ROOT, "reports")
 
 
 def _scan():
     """收集所有已生成的产物，按日期倒序"""
     items = {}
-    if not os.path.isdir(REPORTS):
+    if not os.path.isdir(_reports_dir()):
         return []
-    for fn in os.listdir(REPORTS):
+    for fn in os.listdir(_reports_dir()):
         m = re.match(r"dashboard_(\d{8})_(am|pm)\.html", fn)
         if m:
             d, s = m.group(1), m.group(2)
@@ -40,7 +46,7 @@ def _scan():
 
 def render():
     items = _scan()
-    has_hist = os.path.exists(os.path.join(REPORTS, "history.html"))
+    has_hist = os.path.exists(os.path.join(_reports_dir(), "history.html"))
 
     h = []
     h.append('<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">')
@@ -94,8 +100,8 @@ def render():
 
 def main():
     html = render()
-    os.makedirs(REPORTS, exist_ok=True)
-    out = os.path.join(REPORTS, "index.html")
+    os.makedirs(_reports_dir(), exist_ok=True)
+    out = os.path.join(_reports_dir(), "index.html")
     with open(out, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"已生成 {out}")

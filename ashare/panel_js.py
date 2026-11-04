@@ -3,6 +3,19 @@ PANEL_JS = r"""
   var R = [], $ = function(i){return document.getElementById(i);};
   var mask = $('wbp-mask');
 
+  // 会话失效时跳回登录页，避免用户对着一个点不动的面板发呆
+  function guard(d){
+    if(d && d.need_login){ location.href = '/login'; return true; }
+    return false;
+  }
+  var out = $('wbp-logout');
+  if(out){
+    out.onclick = function(){
+      fetch('/api/logout', {method:'POST'})
+        .then(function(){ location.href = '/login'; });
+    };
+  }
+
   function open(){ mask.classList.add('on'); }
   function close(){ mask.classList.remove('on'); }
   $('wbp-fab').onclick = open;
@@ -79,6 +92,7 @@ PANEL_JS = r"""
                      body: JSON.stringify({text:text})})
       .then(function(r){return r.json();})
       .then(function(d){
+        if(guard(d)) return;
         if(d.error){ $('wbp-err').textContent = d.error; return; }
         if(!d.rows || !d.rows.length){
           $('wbp-err').textContent = '没有识别到沪深京 A 股代码，检查表格内容'; return;
@@ -162,6 +176,7 @@ PANEL_JS = r"""
       .then(function(r){return r.json();})
       .then(function(d){
         $('wbp-save').disabled = false; $('wbp-saveonly').disabled = false;
+        if(guard(d)) return;
         if(d.error){ $('wbp-msg').innerHTML = '<span class="wbp-err">'+esc(d.error)+'</span>'; return; }
         $('wbp-msg').innerHTML = '<span class="wbp-ok">已保存 ' + d.saved +
           ' 只（' + d.withpos + ' 只含持仓）</span>';
@@ -232,6 +247,7 @@ PANEL_JS = r"""
                          body: JSON.stringify({action:action, codes:codes})})
       .then(function(r){return r.json();})
       .then(function(d){
+        if(guard(d)) return;
         if(d.error){ $('wbp-wl-msg').innerHTML = '<span class="wbp-err">'+esc(d.error)+'</span>'; return; }
         $('wbp-wl-msg').innerHTML = '<span class="wbp-ok">'+esc(d.msg)+'</span>' +
           '<span style="color:#8a8f98;margin-left:8px">改动将在下次生成复盘时生效</span>';
@@ -298,16 +314,26 @@ PANEL_JS = r"""
 """
 
 
-def inject(html, enabled=True):
+def inject(html, enabled=True, username=None):
     """把操作面板注入到一个完整 HTML 页面的 </body> 之前。
 
     enabled=False 时原样返回：静态双击打开的看板没有后端，
     显示一个点了没反应的按钮比不显示更糟。
+    username 非空时在面板标题栏显示当前账号与退出入口。
     """
     if not enabled or not html or "</body>" not in html:
         return html
     from .panel import PANEL_CSS, PANEL_HTML
+    block_html = PANEL_HTML
+    if username:
+        import html as _h
+        safe = _h.escape(str(username))
+        block_html = block_html.replace(
+            '<button id="wbp-x"',
+            f'<span class="wbp-who">{safe}</span>'
+            f'<button class="wbp-out" id="wbp-logout">退出</button>'
+            f'<button id="wbp-x"')
     block = ("<style>" + PANEL_CSS + "</style>"
-             + PANEL_HTML
+             + block_html
              + "<script>" + PANEL_JS + "</script>")
     return html.replace("</body>", block + "</body>", 1)

@@ -87,18 +87,22 @@ STATEMENT_FILES = [
 
 
 def find_statement():
-    """在项目根目录找交割单并读成 DataFrame。找不到返回 None。
-    也会扫描 *交割单*.xlsx / *对账单*.xlsx 这类带前缀的文件名。"""
+    """在当前账号目录找交割单并读成 DataFrame。找不到返回 None。
+    多用户下只看本账号目录，不回落到项目根目录 —— 交割单是隐私数据。"""
     import glob
     import os
 
     import pandas as pd
 
-    from .data import ROOT
+    try:
+        from .context import user_root
+        base = user_root()
+    except Exception:
+        from .data import ROOT as base
 
-    cands = [os.path.join(ROOT, n) for n in STATEMENT_FILES]
-    for pat in ("*交割单*.xls*", "*对账单*.xls*", "*流水*.xls*"):
-        cands += sorted(glob.glob(os.path.join(ROOT, pat)))
+    cands = [os.path.join(base, n) for n in STATEMENT_FILES]
+    for pat in ("*交割单*.xls*", "*对账单*.xls*", "*流水*.xls*", "Table_*.xls*"):
+        cands += sorted(glob.glob(os.path.join(base, pat)))
     for p in cands:
         if not os.path.exists(p):
             continue
