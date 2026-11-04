@@ -383,10 +383,14 @@ def _sec_delta(h, ctx):
 
 def _sec_portfolio(h, ctx):
     p = ctx.get("portfolio")
+    h.append('<div class="card"><h2>持仓'
+             '<span class="wbp-slot" data-slot="pos"></span></h2>')
     if not p or not p.get("rows"):
+        h.append('<div class="hint">还没有持仓数据。点上面的「导入持仓」，'
+                 '粘贴券商导出的持仓表或交割单即可，数量与成本会自动算出来。</div>')
+        h.append("</div>")
         return
-    h.append('<div class="card"><h2>持仓</h2>'
-             '<div class="hint">只统计 watchlist.txt 里填了「数量,成本价」的标的</div>')
+    h.append('<div class="hint">只统计在持仓文件里填了「数量,成本价」的标的</div>')
     h.append('<div class="dstrip" style="margin-bottom:16px">')
     items = [
         ("总市值", f'<b>{p["total_mv"]:,.0f}</b> 元', ""),
@@ -614,6 +618,7 @@ def render_html(ctx):
     h.append(f'<span class="sub">{ctx["date"]}　行情时点 {ctx.get("quote_ts", "--:--")}'
              f'　取数 {ctx.get("latency", "-")}</span>')
     h.append(f'<span class="badge {band_cls}">{t["band"]} {t["total"]:.1f}</span>')
+    h.append('<span class="wbp-hdact"></span>')
     h.append("</div>")
 
     if ctx.get("warning"):
@@ -717,7 +722,8 @@ def render_html(ctx):
 
     # 自选股（可点开看详情）
     det_all = ctx.get("detail") or {}
-    h.append('<div class="card"><h2>自选股</h2>'
+    h.append('<div class="card"><h2>自选股'
+             '<span class="wbp-slot" data-slot="wl"></span></h2>'
              '<div class="hint">点击任意一行展开今日分时与近 20 日走势　·　'
              '偏离所属行业中位数 1 个百分点以内视为跟随板块</div>')
     h.append('<table><tr><th>名称</th><th class="n">现价</th><th class="n">涨跌幅</th>'

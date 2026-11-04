@@ -1,80 +1,222 @@
 PANEL_JS = r"""
 (function(){
-  var R = [], $ = function(i){return document.getElementById(i);};
+  var $ = function(id){ return document.getElementById(id); };
+  var NAME = __NAME__;
   var mask = $('wbp-mask');
 
-  // 会话失效时跳回登录页，避免用户对着一个点不动的面板发呆
-  function guard(d){
-    if(d && d.need_login){ location.href = '/login'; return true; }
-    return false;
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
   }
-  var out = $('wbp-logout');
-  if(out){
-    out.onclick = function(){
-      fetch('/api/logout', {method:'POST'})
-        .then(function(){ location.href = '/login'; });
+  function isDash(){
+    return /dashboard_\d{8}_(am|pm)\.html$/.test(location.pathname);
+  }
+  function today(){
+    var d = new Date();
+    return '' + d.getFullYear() + ('0'+(d.getMonth()+1)).slice(-2) + ('0'+d.getDate()).slice(-2);
+  }
+
+  // 旧版看板没有预留锚点，这里兜底创建，避免老报告上什么按钮都没有
+  function ensureHeaderSlot(){
+    var box = document.querySelector('.wbp-hdact');
+    if(box) return box;
+    var hd = document.querySelector('.hd');
+    if(!hd) return null;
+    box = document.createElement('span');
+    box.className = 'wbp-hdact';
+    hd.appendChild(box);
+    return box;
+  }
+
+  function ensureSlot(key, titleText){
+    var s = document.querySelector('[data-slot="' + key + '"]');
+    if(s) return s;
+    var cards = document.querySelectorAll('.card');
+    for(var i = 0; i < cards.length; i++){
+      var h2 = cards[i].querySelector('h2');
+      if(h2 && h2.textContent.indexOf(titleText) >= 0){
+        var sp = document.createElement('span');
+        sp.className = 'wbp-slot';
+        sp.setAttribute('data-slot', key);
+        h2.appendChild(sp);
+        return sp;
+      }
+    }
+    return null;
+  }
+
+  // ---------- 页头：日期切换 / 即时复盘 / 账号 / 退出 ----------
+  function buildHeader(){
+    var box = ensureHeaderSlot();
+    if(!box) return;
+    box.innerHTML =
+      (isDash() ? '<select id="wbp-date" title="切换到其它复盘日期"></select>' : '') +
+      '<button class="wbp-a" id="wbp-run" title="用当前行情立刻生成一份复盘">生成即时复盘</button>' +
+      '<span class="wbp-user"><i>' + esc(NAME.slice(0,1)) + '</i>' + esc(NAME) + '</span>' +
+      '<button class="wbp-a ghost" id="wbp-logout">退出</button>';
+
+    $('wbp-logout').onclick = function(){
+      fetch('/api/logout', {method:'POST'}).then(function(){ location.href = '/login'; });
+    };
+    $('wbp-run').onclick = function(){ runNow(this); };
+    if($('wbp-date')) loadDates();
+  }
+
+  function loadDates(){
+    fetch('/list').then(function(r){ return r.json(); }).then(function(d){
+      var sel = $('wbp-date'); if(!sel) return;
+      var boards = (d.items || []).filter(function(x){ return x.tag === '看板'; });
+      if(!boards.length) return;
+      var cur = location.pathname.replace('/reports/', '');
+      var html = '';
+      for(var i=0;i<boards.length;i++){
+        var b = boards[i], f = b.url.replace('/reports/', '');
+        html += '<option value="' + esc(b.url) + '"' + (f === cur ? ' selected' : '') + '>' +
+                esc(b.label.replace('看板', '').trim()) + '</option>';
+      }
+      sel.innerHTML = html;
+      sel.onchange = function(){ location.href = this.value; };
+    });
+  }
+
+  function runNow(btn){
+    var m = location.pathname.match(/dashboard_(\d{8})_(am|pm)\.html$/);
+    var now = new Date();
+    var mins = now.getHours() * 60 + now.getMinutes();
+    var session = mins < 13 * 60 ? 'am' : 'pm';   // 午盘前出「下午怎么盯」，午后出「明天怎么做」
+    var date = today();
+    btn.disabled = true; btn.textContent = '生成中…';
+    fetch('/run', {method:'POST', headers:{'Content-Type':'application/json'},
+                   body: JSON.stringify({session: session})})
+      .then(function(){ poll(btn, date, session); })
+      .catch(function(){ btn.disabled = false; btn.textContent = '生成即时复盘'; });
+  }
+
+  function poll(btn, date, session){
+    fetch('/status').then(function(r){ return r.json(); }).then(function(d){
+      if(d.running){ setTimeout(function(){ poll(btn, date, session); }, 1500); return; }
+      if(d.ok){
+        location.href = '/reports/dashboard_' + date + '_' + session + '.html';
+      }else{
+        btn.disabled = false; btn.textContent = '生成即时复盘';
+        alert('生成失败，检查网络后重试。\n\n' + (d.tail || '').slice(-400));
+      }
+    });
+  }
+
+  // ---------- 持仓：导入入口 ----------
+  function buildPosSlot(){
+    var slot = ensureSlot('pos', '持仓');
+    if(!slot) return;
+    slot.innerHTML = '<button class="wbp-btnx" id="wbp-open-imp">导入持仓</button>';
+    $('wbp-open-imp').onclick = function(){ mask.classList.add('on'); };
+  }
+
+  // ---------- 自选股：添加 / 删除 ----------
+  function buildWatchSlot(){
+    var slot = ensureSlot('wl', '自选股');
+    if(!slot) return;
+    slot.innerHTML = '<button class="wbp-btnx" id="wbp-wl-toggle">+ 添加</button>';
+    $('wbp-wl-toggle').onclick = function(){
+      var bar = document.querySelector('.wbp-addbar');
+      if(bar){ bar.remove(); return; }
+      var card = slot.closest('.card');
+      var hint = card.querySelector('.hint');
+      var div = document.createElement('div');
+      div.className = 'wbp-addbar';
+      div.innerHTML = '<input id="wbp-wl-in" placeholder="输入代码，可粘贴多个：600519 或 600519,贵州茅台">' +
+                      '<button class="wbp-btnx" id="wbp-wl-add">添加</button>' +
+                      '<span class="wbp-tip">沪深京 A 股，回车即可</span>';
+      hint.parentNode.insertBefore(div, hint.nextSibling);
+      $('wbp-wl-in').focus();
+      $('wbp-wl-add').onclick = doAdd;
+      $('wbp-wl-in').onkeydown = function(e){ if(e.key === 'Enter') doAdd(); };
     };
   }
 
-  function open(){ mask.classList.add('on'); }
-  function close(){ mask.classList.remove('on'); }
-  $('wbp-fab').onclick = open;
-  $('wbp-x').onclick = close;
-  mask.onclick = function(e){ if(e.target === mask) close(); };
+  function doAdd(){
+    var inp = $('wbp-wl-in'); if(!inp || !inp.value.trim()) return;
+    var btn = $('wbp-wl-add'); btn.disabled = true; btn.textContent = '…';
+    fetch('/watchlist', {method:'POST', headers:{'Content-Type':'application/json'},
+                         body: JSON.stringify({action:'add', codes: inp.value})})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d.error){ alert(d.error); btn.disabled = false; btn.textContent = '添加'; return; }
+        location.reload();
+      })
+      .catch(function(){ btn.disabled = false; btn.textContent = '添加'; });
+  }
+
+  function bindRowDelete(){
+    fetch('/watchlist').then(function(r){ return r.json(); }).then(function(d){
+      var items = d.items || [];
+      if(!items.length) return;
+      var rows = document.querySelectorAll('tr.exp');
+      for(var i=0;i<rows.length;i++){
+        (function(tr){
+          var first = tr.querySelector('td'); if(!first) return;
+          var txt = first.textContent.replace(/[\u25b8\s]/g, '');
+          var hit = null;
+          for(var j=0;j<items.length;j++){
+            if(items[j].name && txt.indexOf(items[j].name) === 0){ hit = items[j]; break; }
+          }
+          if(!hit) return;
+          var tds = tr.querySelectorAll('td');
+          var cell = tds[tds.length - 1];
+          var b = document.createElement('button');
+          b.className = 'wbp-del'; b.title = '从自选股移除'; b.textContent = '\u00d7';
+          b.onclick = function(e){
+            e.stopPropagation();
+            if(!confirm('把「' + hit.name + '」从自选股里移除？')) return;
+            fetch('/watchlist', {method:'POST', headers:{'Content-Type':'application/json'},
+                                 body: JSON.stringify({action:'remove', codes:[hit.code]})})
+              .then(function(r){ return r.json(); }).then(function(){ location.reload(); });
+          };
+          cell.appendChild(b);
+        })(rows[i]);
+      }
+    }).catch(function(){});
+  }
+
+  // ---------- 导入弹窗 ----------
+  var ROWS = [];
+  function openModal(){ mask.classList.add('on'); }
+
+  $('wbp-x').onclick = function(){ mask.classList.remove('on'); };
+  mask.onclick = function(e){ if(e.target === mask) mask.classList.remove('on'); };
   document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape' && mask.classList.contains('on')) close();
+    if(e.key === 'Escape' && mask.classList.contains('on')) mask.classList.remove('on');
   });
 
-  // Tab 切换
-  var tabs = document.querySelectorAll('.wbp-tab');
-  for(var i=0;i<tabs.length;i++){
-    tabs[i].onclick = function(){
-      for(var j=0;j<tabs.length;j++){ tabs[j].classList.remove('on'); }
-      this.classList.add('on');
-      var panes = document.querySelectorAll('.wbp-pane');
-      for(var k=0;k<panes.length;k++){ panes[k].classList.remove('on'); }
-      $('wbp-p-' + this.dataset.p).classList.add('on');
-      if(this.dataset.p === 'nav'){ loadNav(); }
-      if(this.dataset.p === 'wl'){ loadWL(); }
-    };
-  }
-
-  // ---- 导入 ----
-  // xlsx 是 ZIP 二进制，readAsText 只能得到 PK... 乱码。
-  // 二进制格式走 /upload 让后端用 openpyxl 解析；纯文本仍在前端读，省一次往返。
   $('wbp-file').addEventListener('change', function(e){
     var f = e.target.files[0]; if(!f) return;
     $('wbp-err').textContent = '';
-    var bin = /\.(xlsx|xlsm|xls)$/i.test(f.name);
     var r = new FileReader();
-    if(bin){
-      $('wbp-ta').value = '';
-      $('wbp-ta').placeholder = '已选择 ' + f.name + '，正在解析…';
-      r.onload = function(){
-        fetch('/upload', {method:'POST', headers:{'Content-Type':'application/json'},
-                          body: JSON.stringify({name:f.name, data:r.result})})
-          .then(function(x){return x.json();})
-          .then(function(d){
-            $('wbp-ta').placeholder = '把持仓表粘到这里';
-            if(d.error){ $('wbp-err').textContent = d.error; return; }
-            if(!d.rows || !d.rows.length){
-              $('wbp-err').textContent = '文件里没有识别到沪深京 A 股代码'; return;
-            }
-            R = d.rows; render(d);
-          })
-          .catch(function(err){
-            $('wbp-ta').placeholder = '把持仓表粘到这里';
-            $('wbp-err').textContent = '上传失败：' + err;
-          });
-      };
-      r.readAsDataURL(f);
-    }else{
-      r.onload = function(){ $('wbp-ta').value = r.result; parse(); };
-      r.readAsText(f, 'UTF-8');
-    }
+    r.onload = function(){
+      $('wbp-ta').value = r.result;
+      $('wbp-ta').placeholder = '\u5df2\u9009 ' + f.name + '\uff0c\u6b63\u5728\u89e3\u6790\u2026';
+      fetch('/upload', {method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({name: f.name, data: r.result, b64: false})})
+        .then(function(x){ return x.json(); })
+        .then(function(d){
+          $('wbp-ta').placeholder = '\u628a\u6301\u4ed3\u8868\u6216\u4ea4\u5272\u5355\u7c98\u5230\u8fd9\u91cc';
+          if(d.error){ $('wbp-err').textContent = d.error; return; }
+          if(!d.rows || !d.rows.length){
+            $('wbp-err').textContent = '\u6587\u4ef6\u91cc\u6ca1\u6709\u8bc6\u522b\u5230\u6caa\u6df1\u4eac A \u80a1\u4ee3\u7801'; return;
+          }
+          ROWS = d.rows; render(d);
+        })
+        .catch(function(err){
+          $('wbp-ta').placeholder = '\u628a\u6301\u4ed3\u8868\u6216\u4ea4\u5272\u5355\u7c98\u5230\u8fd9\u91cc';
+          $('wbp-err').textContent = '\u4e0a\u4f20\u5931\u8d25\uff1a' + err;
+        });
+    };
+    r.readAsText(f, 'UTF-8');
   });
+
   $('wbp-sample').onclick = function(){
-    fetch('/sample').then(function(r){return r.json();}).then(function(d){
+    fetch('/sample').then(function(r){ return r.json(); }).then(function(d){
       $('wbp-ta').value = d.text; parse();
     });
   };
@@ -87,253 +229,128 @@ PANEL_JS = r"""
   function parse(){
     var text = $('wbp-ta').value.trim();
     $('wbp-err').textContent = '';
-    if(!text){ $('wbp-err').textContent = '先粘贴内容或选择文件'; return; }
+    if(!text){ $('wbp-err').textContent = '\u5148\u7c98\u8d34\u5185\u5bb9\u6216\u9009\u6587\u4ef6'; return; }
     fetch('/parse', {method:'POST', headers:{'Content-Type':'application/json'},
-                     body: JSON.stringify({text:text})})
-      .then(function(r){return r.json();})
+                     body: JSON.stringify({text: text})})
+      .then(function(r){ return r.json(); })
       .then(function(d){
-        if(guard(d)) return;
         if(d.error){ $('wbp-err').textContent = d.error; return; }
         if(!d.rows || !d.rows.length){
-          $('wbp-err').textContent = '没有识别到沪深京 A 股代码，检查表格内容'; return;
+          $('wbp-err').textContent = '\u6ca1\u6709\u8bc6\u522b\u5230\u6caa\u6df1\u4eac A \u80a1\u4ee3\u7801\uff0c\u68c0\u67e5\u4e00\u4e0b\u8868\u683c\u5185\u5bb9'; return;
         }
-        R = d.rows; render(d);
+        ROWS = d.rows; render(d);
       })
-      .catch(function(e){ $('wbp-err').textContent = '请求失败：' + e; });
-  }
-
-  function esc(s){
-    return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      .catch(function(e){ $('wbp-err').textContent = '\u8bf7\u6c42\u5931\u8d25\uff1a' + e; });
   }
 
   function render(d){
     var m = d.meta || {};
-    var h;
-    if(m.kind === 'statement'){
-      h = '已识别为<b>交割单</b>（流水 ' + (m.trades||0) + ' 笔' +
-          (m.span ? '，' + m.span[0] + ' ~ ' + m.span[1] : '') +
-          '），按买卖累计还原出 <b>' + d.rows.length + '</b> 只在持标的。';
-      h += '<br>成本为移动加权' + (m.fee_included ? '<b>含手续费</b>' : '') +
-           '，已清仓标的自动剔除。';
-      if(m.mismatch && m.mismatch.length){
-        h += '<br><span style="color:#b3261e">注意：' + m.mismatch.length +
-             ' 只与「股份余额」列不一致（可能有送股/转增），请手工核对数量。</span>';
-      }
-    }else{
-      h = '识别到 <b>' + d.rows.length + '</b> 只股票　·　' +
-          (m.header ? '表头已识别' : '无表头，按位置解析');
-      if(m.columns && Object.keys(m.columns).length){
-        var nm = {code:'代码', name:'名称', shares:'数量', cost:'成本价', price:'现价'};
-        var ps = [];
-        for(var k in m.columns){ ps.push((nm[k]||k) + '=第' + (m.columns[k]+1) + '列'); }
-        h += '<br>列映射：' + ps.join('　');
-      }
-      var pc = d.rows.filter(function(x){return x.shares>0 && x.cost>0;}).length;
-      h += '<br>其中 <b>' + pc + '</b> 只有完整持仓（数量+成本），其余按关注处理';
+    var kind = m.kind === 'statement' ? '\u4ea4\u5272\u5355' : '\u6301\u4ed3\u8868';
+    var names = {code:'\u4ee3\u7801', name:'\u540d\u79f0', shares:'\u6570\u91cf',
+                 cost:'\u6210\u672c\u4ef7', price:'\u73b0\u4ef7'};
+    var h = '\u8bc6\u522b\u4e3a <b>' + kind + '</b>\uff0c\u5171 <b>' + d.rows.length + '</b> \u53ea\u80a1\u7968';
+    if(m.columns && Object.keys(m.columns).length){
+      var ps = [];
+      for(var k in m.columns){ ps.push((names[k] || k) + '=\u7b2c' + (m.columns[k] + 1) + '\u5217'); }
+      h += '<br>\u5217\u6620\u5c04\uff1a' + ps.join('\u3000');
     }
+    var pc = 0;
+    for(var i=0;i<d.rows.length;i++){
+      if(d.rows[i].shares > 0 && d.rows[i].cost > 0) pc++;
+    }
+    h += '<br>\u5176\u4e2d <b>' + pc + '</b> \u53ea\u6709\u5b8c\u6574\u6301\u4ed3\uff08\u6570\u91cf+\u6210\u672c\uff09';
     $('wbp-map').innerHTML = h;
 
-    var t = '<table><colgroup><col style="width:76px"><col>' +
-            '<col style="width:92px"><col style="width:92px"><col style="width:88px">' +
-            '</colgroup><tr><th>代码</th><th>名称</th><th class="n">数量</th>' +
-            '<th class="n">成本价</th><th class="n">市值</th></tr>';
-    for(var i=0;i<d.rows.length;i++){
-      var x = d.rows[i];
+    var t = '<table><tr><th>\u4ee3\u7801</th><th>\u540d\u79f0</th><th class="n">\u6570\u91cf</th>' +
+            '<th class="n">\u6210\u672c\u4ef7</th><th class="n">\u5e02\u503c</th></tr>';
+    for(var j=0;j<d.rows.length;j++){
+      var x = d.rows[j];
+      var mv = (x.price && x.shares)
+        ? (x.shares * x.price).toLocaleString('zh-CN', {maximumFractionDigits: 0}) : '\u2014';
       t += '<tr><td>' + esc(x.code) + '</td>' +
-           '<td><input data-i="'+i+'" data-k="name" value="'+esc(x.name)+'"></td>' +
-           '<td><input data-i="'+i+'" data-k="shares" value="'+esc(x.shares)+'" style="text-align:right"></td>' +
-           '<td><input data-i="'+i+'" data-k="cost" value="'+esc(x.cost)+'" style="text-align:right"></td>' +
-           '<td class="n" id="wbp-mv'+i+'">' + mv(x) + '</td></tr>';
+           '<td><input data-i="' + j + '" data-k="name" value="' + esc(x.name || '') + '"></td>' +
+           '<td><input data-i="' + j + '" data-k="shares" value="' + (x.shares == null ? '' : x.shares) +
+           '" style="text-align:right"></td>' +
+           '<td><input data-i="' + j + '" data-k="cost" value="' + (x.cost == null ? '' : x.cost) +
+           '" style="text-align:right"></td>' +
+           '<td class="n" id="wbp-mv' + j + '">' + mv + '</td></tr>';
     }
-    $('wbp-tbl').innerHTML = t + '</table>';
+    t += '</table>';
+    $('wbp-tbl').innerHTML = t;
     $('wbp-step2').style.display = '';
     $('wbp-msg').textContent = '';
   }
 
-  function mv(x){
-    return (x.price && x.shares)
-      ? (x.shares * x.price).toLocaleString('zh-CN', {maximumFractionDigits:0}) : '—';
-  }
-
-  $('wbp-tbl').addEventListener('input', function(e){
+  document.addEventListener('input', function(e){
     var el = e.target;
     if(!el.dataset || el.dataset.k === undefined) return;
     var i = +el.dataset.i, k = el.dataset.k;
-    R[i][k] = (k === 'name') ? el.value
-      : (el.value === '' ? null : parseFloat(el.value));
-    var c = $('wbp-mv' + i);
-    if(c) c.textContent = mv(R[i]);
+    ROWS[i][k] = (k === 'name') ? el.value : (el.value === '' ? null : parseFloat(el.value));
+    var mv = $('wbp-mv' + i);
+    if(mv){
+      var x = ROWS[i];
+      mv.textContent = (x.price && x.shares)
+        ? (x.shares * x.price).toLocaleString('zh-CN', {maximumFractionDigits: 0}) : '\u2014';
+    }
   });
 
-  function save(then){
-    var body = R.map(function(x){
-      return {code:x.code, name:x.name||'', shares:x.shares||null, cost:x.cost||null};
+  function save(thenRun){
+    var body = ROWS.map(function(x){
+      return {code: x.code, name: x.name || '', shares: x.shares || null, cost: x.cost || null};
     });
-    $('wbp-save').disabled = true; $('wbp-saveonly').disabled = true;
     fetch('/save', {method:'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({rows:body})})
-      .then(function(r){return r.json();})
+                    body: JSON.stringify({rows: body})})
+      .then(function(r){ return r.json(); })
       .then(function(d){
-        $('wbp-save').disabled = false; $('wbp-saveonly').disabled = false;
-        if(guard(d)) return;
-        if(d.error){ $('wbp-msg').innerHTML = '<span class="wbp-err">'+esc(d.error)+'</span>'; return; }
-        $('wbp-msg').innerHTML = '<span class="wbp-ok">已保存 ' + d.saved +
-          ' 只（' + d.withpos + ' 只含持仓）</span>';
-        if(then) then();
+        if(d.error){ $('wbp-msg').innerHTML = '<span class="wbp-err">' + esc(d.error) + '</span>'; return; }
+        $('wbp-msg').innerHTML = '<span class="wbp-ok">\u5df2\u4fdd\u5b58 ' + d.saved +
+          ' \u53ea\uff08' + d.withpos + ' \u53ea\u5e26\u6301\u4ed3\uff09</span>';
+        if(thenRun){ startRegen(); } else { setTimeout(function(){ location.reload(); }, 700); }
       })
       .catch(function(e){
-        $('wbp-save').disabled = false; $('wbp-saveonly').disabled = false;
-        $('wbp-msg').innerHTML = '<span class="wbp-err">保存失败：'+esc(e)+'</span>';
+        $('wbp-msg').innerHTML = '<span class="wbp-err">\u4fdd\u5b58\u5931\u8d25\uff1a' + esc(e) + '</span>';
       });
   }
-  $('wbp-saveonly').onclick = function(){ save(null); };
-  $('wbp-save').onclick = function(){
-    save(function(){
-      document.querySelector('.wbp-tab[data-p="run"]').click();
-      run('pm', false);
-    });
-  };
+  $('wbp-save').onclick = function(){ save(true); };
+  $('wbp-saveonly').onclick = function(){ save(false); };
 
-  // ---- 自选股管理 ----
-  function loadWL(){
-    var box = $('wbp-wl-list');
-    box.innerHTML = '<div class="wbp-hint">加载中…</div>';
-    fetch('/watchlist').then(function(r){return r.json();}).then(function(d){
-      var it = d.items || [];
-      if(!it.length){ box.innerHTML = '<div class="wbp-hint">还没有自选股。</div>'; return; }
-      var t = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">' +
-              '<tr><th style="text-align:left;padding:6px;border-bottom:1px solid #e6e8eb;color:#5f6368">代码</th>' +
-              '<th style="text-align:left;padding:6px;border-bottom:1px solid #e6e8eb;color:#5f6368">名称</th>' +
-              '<th style="text-align:right;padding:6px;border-bottom:1px solid #e6e8eb;color:#5f6368">现价</th>' +
-              '<th style="text-align:right;padding:6px;border-bottom:1px solid #e6e8eb;color:#5f6368">涨跌</th>' +
-              '<th style="text-align:right;padding:6px;border-bottom:1px solid #e6e8eb;color:#5f6368">持仓</th>' +
-              '<th style="padding:6px;border-bottom:1px solid #e6e8eb"></th></tr>';
-      it.forEach(function(x){
-        var pc = (x.pct == null) ? '—'
-          : '<span style="color:' + (x.pct>=0 ? '#d94b4b' : '#2b8560') + '">' +
-            (x.pct>=0?'+':'') + x.pct.toFixed(2) + '%</span>';
-        t += '<tr><td style="padding:5px 6px;border-bottom:1px solid #f2f4f6">' + esc(x.code) + '</td>' +
-             '<td style="padding:5px 6px;border-bottom:1px solid #f2f4f6">' + esc(x.name) + '</td>' +
-             '<td style="padding:5px 6px;text-align:right;border-bottom:1px solid #f2f4f6">' +
-               (x.price != null ? x.price.toFixed(2) : '—') + '</td>' +
-             '<td style="padding:5px 6px;text-align:right;border-bottom:1px solid #f2f4f6">' + pc + '</td>' +
-             '<td style="padding:5px 6px;text-align:right;border-bottom:1px solid #f2f4f6">' +
-               (x.held ? x.shares + ' 股' : '—') + '</td>' +
-             '<td style="padding:5px 6px;text-align:right;border-bottom:1px solid #f2f4f6">' +
-               '<button class="wbp-btn g wbp-del" data-c="' + esc(x.code) +
-               '" style="padding:3px 10px;font-size:12px">删除</button></td></tr>';
-      });
-      box.innerHTML = t + '</table>';
-    });
-  }
-
-  $('wbp-wl-add').onclick = function(){
-    var v = $('wbp-wl-in').value.trim();
-    if(!v){ $('wbp-wl-msg').innerHTML = '<span class="wbp-err">先输入代码</span>'; return; }
-    wlPost('add', v);
-  };
-  $('wbp-wl-in').addEventListener('keydown', function(e){
-    if(e.key === 'Enter'){ $('wbp-wl-add').click(); }
-  });
-  $('wbp-wl-list').addEventListener('click', function(e){
-    var b = e.target.closest ? e.target.closest('.wbp-del') : null;
-    if(!b) return;
-    wlPost('remove', b.dataset.c);
-  });
-
-  function wlPost(action, codes){
-    fetch('/watchlist', {method:'POST', headers:{'Content-Type':'application/json'},
-                         body: JSON.stringify({action:action, codes:codes})})
-      .then(function(r){return r.json();})
-      .then(function(d){
-        if(guard(d)) return;
-        if(d.error){ $('wbp-wl-msg').innerHTML = '<span class="wbp-err">'+esc(d.error)+'</span>'; return; }
-        $('wbp-wl-msg').innerHTML = '<span class="wbp-ok">'+esc(d.msg)+'</span>' +
-          '<span style="color:#8a8f98;margin-left:8px">改动将在下次生成复盘时生效</span>';
-        if(action === 'add'){ $('wbp-wl-in').value = ''; }
-        loadWL();
-      })
-      .catch(function(e){ $('wbp-wl-msg').innerHTML = '<span class="wbp-err">请求失败：'+esc(e)+'</span>'; });
-  }
-
-  // ---- 重新生成 ----
-  var busy = false;
-  function run(session, offline){
-    if(busy) return;
-    busy = true;
-    var btns = document.querySelectorAll('#wbp-p-run .wbp-btn');
-    for(var i=0;i<btns.length;i++){ btns[i].disabled = true; }
-    var log = $('wbp-log');
-    log.style.display = '';
-    log.textContent = '正在取数…（全市场约 6 秒，含波动率预测会更久）';
+  function startRegen(){
+    var log = $('wbp-log'); log.style.display = 'block'; log.textContent = '\u6b63\u5728\u53d6\u6570\u2026';
+    var now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
+    var session = mins < 13 * 60 ? 'am' : 'pm';
     fetch('/run', {method:'POST', headers:{'Content-Type':'application/json'},
-                   body: JSON.stringify({session:session, offline:!!offline})})
-      .then(function(){ poll(); })
-      .catch(function(e){
-        busy = false;
-        for(var i=0;i<btns.length;i++){ btns[i].disabled = false; }
-        log.textContent = '启动失败：' + e;
-      });
+                   body: JSON.stringify({session: session})})
+      .then(function(){ pollRegen(session); });
   }
-  function poll(){
-    fetch('/status').then(function(r){return r.json();}).then(function(d){
-      var log = $('wbp-log');
-      log.textContent = d.tail || '…';
-      log.scrollTop = log.scrollHeight;
-      if(d.running){ setTimeout(poll, 1200); return; }
-      busy = false;
-      var btns = document.querySelectorAll('#wbp-p-run .wbp-btn');
-      for(var i=0;i<btns.length;i++){ btns[i].disabled = false; }
-      log.textContent = (d.ok ? '[完成]\n' : '[失败]\n') + (d.tail || '');
-      log.scrollTop = log.scrollHeight;
-      if(d.ok && d.target){
-        log.textContent += '\n\n即将打开新看板…';
-        setTimeout(function(){ location.href = d.target; }, 900);
-      }
+  function pollRegen(session){
+    fetch('/status').then(function(r){ return r.json(); }).then(function(d){
+      $('wbp-log').textContent = d.tail || '\u2026';
+      if(d.running){ setTimeout(function(){ pollRegen(session); }, 1200); return; }
+      if(d.ok){ location.href = '/reports/dashboard_' + today() + '_' + session + '.html'; }
     });
   }
-  $('wbp-run-pm').onclick  = function(){ run('pm', false); };
-  $('wbp-run-am').onclick  = function(){ run('am', false); };
-  $('wbp-run-off').onclick = function(){ run('pm', true); };
 
-  // ---- 切换报表 ----
-  function loadNav(){
-    var box = $('wbp-nav');
-    box.innerHTML = '<div class="wbp-hint">加载中…</div>';
-    fetch('/list').then(function(r){return r.json();}).then(function(d){
-      var h = '';
-      (d.items || []).forEach(function(x){
-        h += '<a href="' + x.url + '"><span>' + esc(x.label) + '</span>' +
-             '<span class="t">' + esc(x.tag) + '</span></a>';
-      });
-      box.innerHTML = h || '<div class="wbp-hint">还没有生成任何报表。</div>';
-    });
-  }
+  // ---------- 启动 ----------
+  buildHeader();
+  buildPosSlot();
+  buildWatchSlot();
+  bindRowDelete();
 })();
 """
 
 
 def inject(html, enabled=True, username=None):
-    """把操作面板注入到一个完整 HTML 页面的 </body> 之前。
+    """把内联操作层注入到一个完整 HTML 页面的 </body> 之前。
 
     enabled=False 时原样返回：静态双击打开的看板没有后端，
-    显示一个点了没反应的按钮比不显示更糟。
-    username 非空时在面板标题栏显示当前账号与退出入口。
+    显示点了没反应的按钮比不显示更糟。
     """
+    import json
+
+    from .panel import PANEL_CSS, PANEL_HTML
+
     if not enabled or not html or "</body>" not in html:
         return html
-    from .panel import PANEL_CSS, PANEL_HTML
-    block_html = PANEL_HTML
-    if username:
-        import html as _h
-        safe = _h.escape(str(username))
-        block_html = block_html.replace(
-            '<button id="wbp-x"',
-            f'<span class="wbp-who">{safe}</span>'
-            f'<button class="wbp-out" id="wbp-logout">退出</button>'
-            f'<button id="wbp-x"')
-    block = ("<style>" + PANEL_CSS + "</style>"
-             + block_html
-             + "<script>" + PANEL_JS + "</script>")
+    js = PANEL_JS.replace("__NAME__", json.dumps(username or "", ensure_ascii=False))
+    block = "<style>" + PANEL_CSS + "</style>" + PANEL_HTML + "<script>" + js + "</script>"
     return html.replace("</body>", block + "</body>", 1)
