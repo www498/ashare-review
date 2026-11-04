@@ -473,6 +473,14 @@ def main():
     except Exception as e:
         print(f"[警告] 首页生成失败：{e}")
 
+    # 16 型人格图鉴（放在项目根，图片走相对路径，只生成一次内容不变）
+    try:
+        from ashare import gallery
+        gp = gallery.write()
+        print(f"人格图鉴：{gp}")
+    except Exception as e:
+        print(f"[警告] 图鉴生成失败：{e}")
+
 
 if __name__ == "__main__":
     main()

@@ -168,6 +168,10 @@ def personal(ctx):
     }}
     if per.get("title"):
         facts["风格判定"] = per["title"]
+    mb = p.get("mbti") or {}
+    if mb.get("full"):
+        facts["交易人格"] = (f'{mb["full"]} {mb.get("name") or ""}'
+                             f'（{mb.get("tagline") or ""}）')
 
     mv = ctx.get("movers") or {}
     if mv:

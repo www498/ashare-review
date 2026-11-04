@@ -138,11 +138,20 @@ table.jn td.jn-why{font-size:11.5px;color:#6b7280;line-height:1.65;max-width:400
 .mbti{display:flex;gap:30px;align-items:center;flex-wrap:wrap;margin-top:14px;
   padding:16px 18px;border-radius:12px;background:#f7f9fc;border:1px solid #e8eef6}
 .mbti .who{text-align:center;flex:0 0 auto}
-.mbti .who svg{display:block;margin:0 auto 6px}
+.mbti .who svg,.mbti .who img{display:block;margin:0 auto 6px;border-radius:16px}
 .mbti .code{font-size:22px;font-weight:800;letter-spacing:5px;color:#243043;
   font-variant-numeric:tabular-nums;line-height:1}
 .mbti .nick{font-size:12.5px;color:#5f6b7a;margin-top:5px;letter-spacing:.5px}
 .mbti .dims{flex:1;min-width:300px}
+.mbti .mtag{font-size:12.5px;color:#3c4043;line-height:1.8;margin-bottom:11px;
+  padding-bottom:11px;border-bottom:1px dashed #dbe3ee}
+.mbgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px}
+@media(max-width:900px){.mbgrid{grid-template-columns:repeat(4,1fr)}}
+.mbi{border:1px solid #e6ebf3;border-radius:8px;background:#fff;padding:7px 6px;
+  text-align:center;font-size:11px;color:#7b8595;line-height:1.5}
+.mbi b{display:block;font-size:11.5px;letter-spacing:1.6px;color:#98a2b1;font-weight:700}
+.mbi.on{border-color:#4a6fa5;background:#eef3fa;color:#24405f;box-shadow:0 0 0 1px #4a6fa5 inset}
+.mbi.on b{color:#1a4d8f}
 .mbti .dim{display:flex;align-items:center;gap:9px;margin-bottom:7px;font-size:11px;
   color:#8a8f98}
 .mbti .dim:last-child{margin-bottom:0}
@@ -892,14 +901,22 @@ def _sec_profile(h, ctx):
 
     mb = p.get("mbti")
     if mb and mb.get("code") and mb["code"] != "—":
-        from . import persona_art
+        from . import persona_art, profile as _prof
+        cur = mb.get("full") or mb.get("code")
         h.append('<div class="mbti">')
         h.append('<div class="who">')
-        h.append(persona_art.badge(mb.get("name") or "", size=82))
+        h.append(persona_art.badge(cur, mb.get("name") or "", size=128))
         h.append(f'<div class="code">{mb["code"]}</div>'
                  f'<div class="nick">{mb["name"]}</div>')
+        # 缺维度时代号会短于四位（没导持仓就没有 K/D）。宫格里高亮的是补齐后的型，
+        # 这里要说明白，否则「代号三位、高亮四字母」会让人以为算错了。
+        if len(mb["code"]) < 4:
+            h.append('<div class="nick" style="font-size:10.5px;color:#a2aab6;'
+                     'margin-top:2px">部分维度待补全</div>')
         h.append("</div>")
         h.append('<div class="dims">')
+        if mb.get("tagline"):
+            h.append(f'<div class="mtag">{mb["tagline"]}</div>')
         for d in mb["dims"]:
             h.append('<div class="dim">'
                      f'<span style="width:56px;text-align:right">{d.get("left", d["dim"])}</span>'
@@ -908,6 +925,25 @@ def _sec_profile(h, ctx):
                      f'<span style="width:66px">{d.get("right", "")}</span>'
                      f'<span class="note">{d["note"]}</span></div>')
         h.append("</div></div>")
+
+        # 16 型全谱：让人看到自己站在哪一格，而不是只拿到一个孤立标签。
+        # 这正是 MBTI 的做法——类型本身没意义，坐标系才有意义。
+        table = mb.get("all") or _prof.TYPES
+        h.append(f'<details class="fold mb16"><summary>16 型全谱'
+                 f'（你在 {cur} {mb["name"]}）</summary>'
+                 '<div class="mbgrid">')
+        for k, (nm, tg) in table.items():
+            cls = " on" if k == cur else ""
+            h.append(f'<div class="mbi{cls}" title="{tg}">'
+                     f'<b>{k}</b><span>{nm}</span></div>')
+        h.append('</div>')
+        h.append('<div class="hint">四维各二选一，共 16 型：'
+                 '<b>节奏</b> F 快 / S 慢　<b>归因</b> B 跟板块 / A 走独立　'
+                 '<b>盈亏</b> C 截断利润 / R 让利润跑　<b>持仓</b> K 集中 / D 分散。'
+                 '同一行色系代表同一种打法，行内差异只看后两个字母。'
+                 '　<a href="../../../persona.html" target="_blank" '
+                 'style="color:#4a6fa5">看图鉴里的 16 个形象 →</a></div>')
+        h.append('</details>')
 
     per = p.get("persona")
     if per:

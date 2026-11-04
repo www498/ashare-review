@@ -393,12 +393,59 @@ def playbook(c, trades, per_stock, positions=None, quotes=None):
     return out
 
 
-NICK = {
-    ("F", "C"): "快刀手",
-    ("F", "R"): "狙击手",
-    ("S", "C"): "守株人",
-    ("S", "R"): "钓鱼者",
+# 16 型人格表。四维各取两个字母，2^4 = 16 种组合，与 MBTI 的 16 型同构。
+#
+# 字母顺序固定：节奏(F/S) → 归因(B/A) → 盈亏(C/R) → 持仓(K/D)
+#   F 快  S 慢      B 跟板块  A 走独立
+#   C 截断利润  R 让利润跑      K 集中  D 分散
+#
+# 命名规则不是随便起的：前两维决定「在哪儿打猎」（战场），后两维决定
+# 「怎么下口」（手法）。同一战场的四个形象共享色系，视觉上就是一组。
+TYPES = {
+    # ---- 快 + 早卖（珊瑚橙）：抢一波就走 ----
+    "FBCK": ("快刀手", "追着板块热点抢一波，赚够就走，仓位压在一只票上"),
+    "FBCD": ("游骑兵", "跟着板块轮流打，快进快出，但不止押一个方向"),
+    "FACK": ("孤刀客", "专挑走出独立行情的票，赚一点就撤，重仓单打"),
+    "FACD": ("飞镖手", "同时盯几只独立票，谁先到价先扔谁，扔完就找下一个"),
+    # ---- 快 + 让利润跑（钢蓝）：下手准，也敢拿 ----
+    "FBRK": ("猎豹", "板块一动就扑上去，吃到肉才松口，一次只盯一个猎物"),
+    "FBRD": ("群狼", "板块里同时铺开几只，跑得快的让它继续跑"),
+    "FARK": ("狙击手", "只在最有把握的独立机会出手，一枪打到底"),
+    "FARD": ("走马灯", "几只票轮着点亮，不重仓但每只都愿意多等一段"),
+    # ---- 慢 + 早卖（沙棕）：拿得住，却先落袋 ----
+    "SBCK": ("守株人", "认准板块方向长期守着，涨一点就收，仓位集中"),
+    "SBCD": ("收租人", "分散持有几只能分红的票，涨到心理价就换一轮"),
+    "SACK": ("樵夫", "守着自己熟悉的那只票，砍一捆就下山，不贪多"),
+    "SACD": ("采药人", "在不同板块慢慢采，采到合适的就放进筐里"),
+    # ---- 慢 + 让利润跑（松绿）：时间站在他这边 ----
+    "SBRK": ("钓鱼者", "跟着板块的潮水等，鱼咬钩了也不急着收线"),
+    "SBRD": ("渔场主", "同时养几片水域，哪片起鱼都无所谓，长期收成"),
+    "SARK": ("猎户", "认准一只走出独立趋势的票，一路跟到趋势结束"),
+    "SARD": ("庄园主", "分散播种、长期持有，靠时间而不是靠择时赚钱"),
 }
+
+# 每个形象的主色，和 assets/persona 下同名图片的色系一一对应
+TONE = {
+    "C": ("#f0a07a", "#d9613a"),
+    "R": ("#8fb3e0", "#3d6aa8"),
+}
+
+
+def resolve_type(code):
+    """把不完整代号补成 16 型里的一个。
+
+    缺维度是常态：没导持仓就没有 K/D，没归因就没有 B/A。
+    这时按已知字母筛候选，唯一则采用，多个则取表中靠前的一个，
+    并在返回值里标 partial，前端可以显示「待补全」。
+    """
+    if not code or code == "—":
+        return None
+    if code in TYPES:
+        return code
+    cands = [k for k in TYPES if all(ch in k for ch in code)]
+    if not cands:
+        return None
+    return cands[0]
 
 
 def _clamp(x, lo=0.0, hi=1.0):
@@ -422,7 +469,6 @@ def mbti(c, per_stock, movers=None, positions=None, quotes=None):
     h = c.get("hold_avg")
     if h is None:
         dims.append({"dim": "节奏", "letter": "—", "pct": 0.5, "note": "无数据"})
-        pace = None
     else:
         fast = h <= 7
         dims.append({
@@ -431,7 +477,6 @@ def mbti(c, per_stock, movers=None, positions=None, quotes=None):
             "pct": _clamp(0.5 + (h - 7) / 30),
             "note": f"平均 {h:.1f} 天",
         })
-        pace = "F" if fast else "S"
 
     # 2) 归因：板块解释力
     if movers:
@@ -457,15 +502,13 @@ def mbti(c, per_stock, movers=None, positions=None, quotes=None):
     hw, hl = c.get("hold_win"), c.get("hold_loss")
     if hw and hl:
         ratio = hl / hw
-        cut = ratio >= 1.3
         dims.append({
-            "dim": "盈亏", "letter": "C" if cut else "R",
+            "dim": "盈亏", "letter": "C" if ratio >= 1.3 else "R",
             "left": "C 截断利润", "right": "R 让利润跑",
             "pct": _clamp(0.5 - (ratio - 1.3) / 2),
             "note": f"亏 {hl:.0f} 天 / 盈 {hw:.0f} 天",
         })
     else:
-        cut = None
         dims.append({"dim": "盈亏", "letter": "—", "pct": 0.5, "note": "无数据"})
 
     # 4) 持仓集中度
@@ -490,8 +533,13 @@ def mbti(c, per_stock, movers=None, positions=None, quotes=None):
         dims.append({"dim": "持仓", "letter": "—", "pct": 0.5, "note": "无持仓"})
 
     code = "".join(d["letter"] for d in dims if d["letter"] != "—")
-    name = NICK.get((pace, "C" if cut else "R")) if pace and cut is not None else "观察中"
-    return {"code": code or "—", "name": name, "dims": dims}
+    full = resolve_type(code)
+    if full:
+        name, tagline = TYPES[full]
+    else:
+        name, tagline = "观察中", "四个维度的数据还不够，先积累 20 笔以上已平仓交易"
+    return {"code": code or "—", "full": full or "—", "name": name,
+            "tagline": tagline, "dims": dims, "all": TYPES}
 
 
 def _tags(c, per_stock):
