@@ -340,6 +340,7 @@ class Handler(BaseHTTPRequestHandler):
         if not user:
             self.send_response(302)
             self.send_header("Location", "/login")
+            self.send_header("Cache-Control", "no-store, must-revalidate")
             self.end_headers()
             return
 
@@ -356,6 +357,7 @@ class Handler(BaseHTTPRequestHandler):
             if os.path.exists(idx):
                 self.send_response(302)
                 self.send_header("Location", "/reports/index.html")
+                self.send_header("Cache-Control", "no-store, must-revalidate")
                 self.end_headers()
                 return
             html = (PAGE.replace("__CSS__", CSS)
@@ -377,6 +379,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/open":
             self.send_response(302)
             self.send_header("Location", "/home")
+            self.send_header("Cache-Control", "no-store, must-revalidate")
             self.end_headers()
         elif path.startswith("/reports/"):
             name = os.path.basename(path[len("/reports/"):])

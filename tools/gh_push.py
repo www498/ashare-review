@@ -22,6 +22,10 @@ import urllib.request
 REPO = "www498/ashare-review"
 API = f"https://api.github.com/repos/{REPO}"
 
+# git 协议走代理会 502，但 api.github.com 直连是通的。
+# 显式清空代理，避免 urllib 读到环境变量里的 http_proxy。
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
 
 def token():
     out = subprocess.run(["git", "credential", "fill"],
@@ -43,7 +47,7 @@ def call(method, url, payload=None):
     req.add_header("Accept", "application/vnd.github+json")
     if data:
         req.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(req, timeout=90) as r:
+    with _OPENER.open(req, timeout=90) as r:
         return json.loads(r.read().decode())
 
 

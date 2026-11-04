@@ -51,6 +51,7 @@ PANEL_JS = r"""
     var box = ensureHeaderSlot();
     if(!box) return;
     box.innerHTML =
+      '<a class="wbp-a ghost" id="wbp-home" href="/home" title="回到主页：画像 + 每天的复盘">← 主页</a>' +
       (isDash() ? '<select id="wbp-date" title="切换到其它复盘日期"></select>' : '') +
       '<button class="wbp-a" id="wbp-run" title="用当前行情立刻生成一份复盘">生成即时复盘</button>' +
       '<span class="wbp-user"><i>' + esc(NAME.slice(0,1)) + '</i>' + esc(NAME) + '</span>' +
