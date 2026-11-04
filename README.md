@@ -157,14 +157,14 @@ python run_review.py --session pm --offline
 ```
 key=sk-xxxxxxxx
 base_url=https://api.uniportai.com/v1
-model=deepseek-v4.1-flash
+model=deepseek-v4.1-flash-1017
 ```
 
 只写一行裸 key 也认，此时用 DeepSeek 官方地址与默认模型。
 环境变量 `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL` 优先级更高。
 
 中转站经常出现「模型列表里有、实际返回 404/405」的情况，
-代码会按 `deepseek-v4.1-flash → deepseek-v4-flash → deepseek-chat` 自动回退，
+代码会按 `deepseek-v4.1-flash-1017 → deepseek-v4.1-flash → deepseek-v4-flash → deepseek-chat` 自动回退，
 并在日志里打印「配置的是 A，实际用了 B」，避免你以为在跑 A 其实跑的是 B。
 
 它做两件事：市场解读、个人点评（画像自然语言 + 每只自选股的归因短评）。

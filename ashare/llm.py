@@ -22,7 +22,8 @@ DEFAULT_BASE = "https://api.deepseek.com/v1"
 DEFAULT_MODEL = "deepseek-chat"
 
 # 配置的模型不可用时的备选。中转站常有「列表里有、实际 404/405」的情况。
-FALLBACK_MODELS = ("deepseek-v4.1-flash", "deepseek-v4-flash", "deepseek-chat")
+FALLBACK_MODELS = ("deepseek-v4.1-flash-1017", "deepseek-v4.1-flash",
+                   "deepseek-v4-flash", "deepseek-chat")
 
 # 不想配环境变量时，把 key 单独写进这个文件（一行，只有 key）。
 # 文件名带 key 字样，.gitignore 已排除，不会被推到公开仓库。
@@ -101,9 +102,20 @@ def chat(messages, temperature=0.3, timeout=60, json_mode=False):
             tried.append(f"{m}({r.status_code})")
             continue
         r.raise_for_status()
+        # 中转站偶尔返回缺字段 / content 为 null 的响应（可能是 reasoning 模型
+        # 把正文放进了 reasoning_content），不能让 KeyError 把整份复盘带崩。
+        try:
+            msg = (r.json().get("choices") or [{}])[0].get("message") or {}
+        except Exception:
+            tried.append(f"{m}(响应非 JSON)")
+            continue
+        content = (msg.get("content") or msg.get("reasoning_content") or "").strip()
+        if not content:
+            tried.append(f"{m}(空响应)")
+            continue
         if m != model:
             print(f"[提示] {model} 不可用（{tried}），已自动改用 {m}")
-        return r.json()["choices"][0]["message"]["content"]
+        return content
 
     raise RuntimeError(f"没有可用模型：{tried}")
 
