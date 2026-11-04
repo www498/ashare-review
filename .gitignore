@@ -45,3 +45,11 @@ llm_key.txt
 
 # 图片生成原图（只保留 assets/persona 下压缩后的版本）
 docs/art/
+
+# npm 临时依赖
+tools/_ff/
+node_modules/
+
+# npm 临时依赖
+tools/_ff/
+node_modules/
