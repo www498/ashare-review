@@ -152,6 +152,17 @@ table.jn td.jn-why{font-size:11.5px;color:#6b7280;line-height:1.65;max-width:400
 .mbti .bar s{position:absolute;left:50%;top:-2px;width:1px;height:9px;
   background:#cfd7e3;text-decoration:none}
 .mbti .note{width:92px;text-align:right;color:#6b7686;font-variant-numeric:tabular-nums}
+.nsum{font-size:13px;color:#3c4043;line-height:1.85;margin:2px 0 4px;max-width:860px}
+.nwatch{margin-top:12px;padding:12px 15px;border-radius:9px;background:#f7f9fc;
+  border:1px solid #e8eef6}
+.nwatch .nwt{font-size:12px;font-weight:600;color:#4a6fa5;margin-bottom:6px}
+.nwatch ul{margin:0;padding-left:18px;font-size:12.5px;color:#4a5058;line-height:1.9}
+table.nl{margin-top:13px}
+table.nl td{font-size:12.3px;line-height:1.6}
+.srev{margin-top:16px;border-top:1px dashed #dbe3ee;padding-top:14px}
+.srev .srt{font-size:13px;font-weight:600;color:#3c4043;margin-bottom:8px}
+.ntag{font-size:10.5px;padding:1px 7px;border-radius:4px;background:#eef1f6;color:#6b7686;
+  white-space:nowrap}
 details.fold{margin-top:14px;border-top:1px solid #eef0f3;padding-top:11px}
 details.fold summary{cursor:pointer;font-size:12.5px;color:#4a6fa5;padding:3px 0;
   user-select:none;font-weight:500}
@@ -472,6 +483,18 @@ def _sec_journal(h, ctx):
         side, side_cls = ("买入", "up") if buy else ("卖出", "down")
         vr = f'{r["vol_ratio"]:.1f}' if r.get("vol_ratio") else "—"
         why = "<br>".join(r["reasons"])
+        af = r.get("after") or {}
+        t3 = af.get("3")
+        if t3 is not None:
+            if t3 > 3:
+                why += (f'<br><span style="color:#b3261e">卖出后 3 日 {t3:+.1f}%'
+                        f'{"，5 日 " + format(af["5"], "+.1f") + "%" if af.get("5") is not None else ""}'
+                        f' —— 事后看是卖飞</span>')
+            elif t3 < -3:
+                why += f'<br><span style="color:#0b7a45">卖出后 3 日 {t3:+.1f}%，躲过了下跌</span>'
+            else:
+                why += f'<br><span style="color:#9aa2ad">卖出后 3 日 {t3:+.1f}%，走势平淡</span>'
+
         h.append(f'<tr><td>{r["name"]}</td><td class="{side_cls}">{side}</td>'
                  f'<td class="n">{r["price"]:,.2f}</td>'
                  f'<td class="n">{r["qty"]:,.0f}</td>'
@@ -483,6 +506,73 @@ def _sec_journal(h, ctx):
     h.append("</table>")
     h.append(f'<div style="{NOTE_STYLE}">判断只依据成交当时的涨跌幅、20 日区间分位、'
              '均线偏离与量能，不参考之后的走势 —— 不是事后诸葛亮。</div>')
+
+    # 最近卖出的后续表现：把「当时怎么判的」和「事后怎么走的」并排放
+    sr = ctx.get("sell_review") or []
+    if sr:
+        fly = sum(1 for x in sr if x["verdict"] == "卖飞")
+        h.append(f'<div class="srev"><div class="srt">最近卖出的后续表现'
+                 f'<span style="font-weight:400;color:#8a8f98;font-size:11.5px;'
+                 f'margin-left:8px">共 {len(sr)} 笔，{fly} 笔事后看是卖飞</span></div>')
+        h.append('<table class="nl"><tr><th style="width:52px">卖出日</th><th>标的</th>'
+                 '<th class="n">卖价</th><th class="n">持有</th><th class="n">本笔</th>'
+                 '<th class="n">卖后3日</th><th class="n">卖后5日</th><th>结论</th></tr>')
+        for x in sr:
+            tone = {"卖飞": "jn-bad2", "躲过": "jn-good", "无差别": "jn-mid"}[x["verdict"]]
+            a3 = f'{x["after3"]:+.1f}%' if x.get("after3") is not None else "—"
+            a5 = f'{x["after5"]:+.1f}%' if x.get("after5") is not None else "—"
+            hold = f'{x["hold_days"]:.0f} 天' if x.get("hold_days") is not None else "—"
+            ret = f'{x["ret_pct"]:+.1f}%' if x.get("ret_pct") is not None else "—"
+            h.append(f'<tr><td style="color:#8a8f98">{x["date"][5:]}</td>'
+                     f'<td>{x["name"]}</td><td class="n">{x["price"]:,.2f}</td>'
+                     f'<td class="n">{hold}</td><td class="n">{ret}</td>'
+                     f'<td class="n {_c(x.get("after3"))}">{a3}</td>'
+                     f'<td class="n {_c(x.get("after5"))}">{a5}</td>'
+                     f'<td><span class="jn-tag {tone}">{x["verdict"]}</span></td></tr>')
+        h.append("</table>")
+        h.append(f'<div style="{NOTE_STYLE}">「卖飞」= 卖出后 3 个交易日又涨了 3% 以上。'
+                 '结果与决策质量要分开看：卖在缩量回调上属于决策偏早，'
+                 '但卖在放量滞涨上即使后来涨了也不算错。</div>')
+        h.append("</div>")
+    h.append("</div>")
+
+
+def _sec_news(h, ctx):
+    """消息面：当天公开快讯里与自选股相关的那几条，加上未来要盯的因素。"""
+    n = ctx.get("news") or {}
+    items = n.get("items") or []
+    if not items:
+        return
+    brief = n.get("brief") or {}
+
+    h.append('<div class="card"><h2>今天发生了什么'
+             f'<span style="font-size:12px;font-weight:400;color:#8a8f98;margin-left:10px">'
+             f'当天公开财经快讯 {n.get("total", len(items))} 条里筛出 {len(items)} 条相关</span></h2>')
+
+    if brief.get("summary"):
+        h.append('<div class="nsum">' + brief["summary"] + '</div>')
+    else:
+        h.append('<div class="hint">未配置模型，这里只列出与自选股行业相关的快讯原文，'
+                 '不做归纳。</div>')
+
+    if brief.get("watch"):
+        h.append('<div class="nwatch"><div class="nwt">未来几天关注</div><ul>')
+        for w in brief["watch"]:
+            h.append(f"<li>{w}</li>")
+        h.append("</ul></div>")
+
+    h.append('<table class="nl"><tr><th style="width:48px">时间</th><th>快讯标题</th>'
+             '<th style="width:82px">来源</th><th style="width:78px">关联</th></tr>')
+    for it in items:
+        h.append(f'<tr><td style="color:#8a8f98;font-variant-numeric:tabular-nums">'
+                 f'{it.get("time") or "—"}</td>'
+                 f'<td>{it.get("title")}</td>'
+                 f'<td style="color:#9aa2ad">{it.get("source")}</td>'
+                 f'<td><span class="ntag">{it.get("tag") or "宏观"}</span></td></tr>')
+    h.append("</table>")
+    h.append(f'<div style="{NOTE_STYLE}">快讯来自华尔街见闻与新浪财经的公开接口，'
+             '只取标题、未做事实核验。归纳部分由大模型复述标题生成，'
+             '不会补充标题以外的细节。</div>')
     h.append("</div>")
 
 
@@ -969,6 +1059,7 @@ def render_html(ctx):
     _sec_journal(h, ctx)
     _sec_profile(h, ctx)
     _sec_watch(h, ctx)
+    _sec_news(h, ctx)
 
     # ---- 市场区 ----
     # 日环比（仅收盘：半日指标与昨日全日不可比）

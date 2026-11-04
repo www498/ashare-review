@@ -222,3 +222,68 @@ def personal(ctx):
                  f"请删掉或改用给定的数字后重新输出 JSON。")
 
     return {"profile": txt, "stocks": {}, "verified": False, "bad": bad}
+
+
+SYSTEM_NEWS = """你在帮一个 A 股投资者做消息面梳理。会给你两样东西：
+1) 当天的公开财经快讯标题（只有标题，没有正文）
+2) 他自选股的近 5 日归因（涨跌、板块超额、个股超额）
+
+请输出两段中文，严格规则：
+1. **只能复述给定标题里的事实**，不得补充标题之外的细节、数据或因果。
+   标题里没说的事，就当不知道。
+2. 优先挑与自选股所属行业真正相关的条目；外交会见、公司诉讼这类
+   与行情无关的，直接忽略，不要硬凑。
+3. 不预测涨跌，不给买卖建议。
+4. 「未来关注」要具体到可验证的事件或数据，比如「美联储议息」「LME 铜库存」
+   「新能源补贴细则」，不要写「关注政策变化」这种空话。
+5. 如果给定标题里确实没有能和自选股挂上钩的内容，就直说「今日消息面
+   与该批标的关联不大」，不要编。
+
+输出 JSON，不要 markdown：
+{"summary": "今天消息面里与这些标的有关的部分，80~140 字",
+ "watch": ["未来几天要关注的具体因素", "..."]}
+"""
+
+
+def news_brief(ctx):
+    """把当天快讯 + 归因交给模型，生成消息面梳理。无 key 或无线索时返回 None。"""
+    if not llm.available():
+        return None
+    items = (ctx.get("news") or {}).get("items") or []
+    movers = ctx.get("movers") or {}
+    if not items:
+        return None
+
+    facts = {
+        "自选股归因": [
+            {"名称": m.get("name"), "行业": m.get("industry"),
+             "近5日": round(m.get("total") or 0, 2),
+             "板块超额": round(m.get("industry_part") or 0, 2),
+             "个股超额": round(m.get("firm") or 0, 2),
+             "主导": m.get("driver")}
+            for m in list(movers.values())[:10]
+        ],
+        "今日快讯": [{"时间": it.get("time"), "标题": it.get("title")}
+                     for it in items[:22]],
+    }
+
+    user = "以下是今天的公开快讯与自选股归因：\n" + json.dumps(facts, ensure_ascii=False, indent=1)
+    for _ in range(2):
+        try:
+            raw = llm.chat([{"role": "system", "content": SYSTEM_NEWS},
+                            {"role": "user", "content": user}],
+                           temperature=0.4, json_mode=True, timeout=90)
+            obj = json.loads(raw)
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {str(e)[:70]}"}
+        summary = (obj.get("summary") or "").strip()
+        watch = [w for w in (obj.get("watch") or []) if isinstance(w, str) and w.strip()]
+        if not summary:
+            return None
+        # 新闻点评里出现的带单位数字同样要能溯源（标题里的数字会被算进 facts）
+        bad = llm.verify_numbers(summary + " " + " ".join(watch), facts)
+        if not bad:
+            return {"summary": summary, "watch": watch[:5], "verified": True}
+        user += (f"\n\n上一版包含给定数据里找不到的数字：{bad}。"
+                 f"请删掉或改为复述标题原文。")
+    return {"summary": summary, "watch": watch[:5], "verified": False}

@@ -18,6 +18,15 @@ HTML 从 120KB 涨到 600KB，还破坏纯文本可 diff 的性质。
     刀 = 果断了结    准星 = 精确择时
     沙漏 = 时间成本  鱼钩 = 等待与收获
 """
+import base64
+import os
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+IMG_DIR = os.path.join(ROOT, "assets", "persona")
+_IMG_CACHE = {}
+
+# AI 生成的形象图（assets/persona/*.png）。只内嵌当前人格那一张：
+# 四张全嵌会让 HTML 多 120KB，而页面上永远只显示一个人格。
 COLORS = {
     "快刀手": ("#f0a07a", "#d9613a"),
     "狙击手": ("#8fb3e0", "#3d6aa8"),
@@ -29,7 +38,20 @@ FALLBACK = ("#b9c2ce", "#7d8797")
 
 
 def badge(name, size=84):
-    """返回一段独立 SVG。name 为四种昵称之一，其余走中性灰。"""
+    """优先返回 AI 生成的圆形象，文件缺失时回退到手绘 SVG。"""
+    fp = os.path.join(IMG_DIR, f"{name}.png")
+    if os.path.exists(fp):
+        if fp not in _IMG_CACHE:
+            with open(fp, "rb") as f:
+                _IMG_CACHE[fp] = base64.b64encode(f.read()).decode()
+        return (f'<img src="data:image/png;base64,{_IMG_CACHE[fp]}" '
+                f'width="{size}" height="{size}" alt="{name}" '
+                f'style="display:block;margin:0 auto 6px;border-radius:50%">')
+    return _svg(name, size)
+
+
+def _svg(name, size=84):
+    """回退用的几何徽章。没有 AI 图片时也能显示，不依赖任何外部资源。"""
     c1, c2 = COLORS.get(name, FALLBACK)
     inner = _ICONS.get(name, _ICONS["_default"])
 

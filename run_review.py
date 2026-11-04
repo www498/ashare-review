@@ -286,6 +286,16 @@ def main():
                                    trades=(ctx.get("profile") or {}).get("trades"))
                 if jr:
                     ctx["journal"] = jr
+                    try:
+                        sr = journal.review_sells(
+                            _d, _col, trades=(ctx.get("profile") or {}).get("trades"),
+                            days=25, limit=8)
+                        if sr:
+                            ctx["sell_review"] = sr
+                            _n = sum(1 for x in sr if x["verdict"] == "卖飞")
+                            print(f"[卖出回看] {len(sr)} 笔，其中 {_n} 笔卖飞")
+                    except Exception as _e:
+                        print(f"[提示] 卖出回看失败：{_e}")
                     print(f"[交易复盘] {jr['day']} 共 {jr['summary']['n']} 手"
                           f"（买 {jr['summary']['buys']} / 卖 {jr['summary']['sells']}）")
             except Exception as e:
@@ -383,6 +393,20 @@ def main():
     except Exception as e:
         print(f"[警告] 多日归因失败：{e}")
 
+    # 消息面：当天公开财经快讯，挑与自选股所在行业相关的几条
+    try:
+        from ashare import news as news_mod
+        _items = news_mod.fetch()
+        if _items:
+            _mv = ctx.get("movers") or {}
+            _inds = list({m.get("industry") for m in _mv.values() if m.get("industry")})
+            _names = [m.get("name") or "" for m in _mv.values()]
+            _hit = news_mod.match(_items, names=_names, industries=_inds, limit=10)
+            ctx["news"] = {"items": _hit, "total": len(_items)}
+            print(f"[消息面] 当天快讯 {len(_items)} 条，与自选股相关 {len(_hit)} 条")
+    except Exception as e:
+        print(f"[警告] 消息面抓取失败：{e}")
+
     # 个人点评：交给大模型把画像与归因写成自然语言。
     # 数字仍由代码算好注入，输出要过数字溯源校验，编造的数字会被打回重写。
     if not args.no_llm and not ctx.get("offline_ai_written"):
@@ -403,6 +427,11 @@ def main():
                             hit += 1
                     print(f"[个人点评] 已生成画像点评，{hit} 只自选股附带归因解读"
                           f"（数字校验{'通过' if pers.get('verified') else '未通过'}）")
+
+                brief = attrib.news_brief(ctx)
+                if brief and brief.get("summary"):
+                    ctx.setdefault("news", {})["brief"] = brief
+                    print(f"[消息面] 已生成梳理解读（{len(brief.get('watch') or [])} 条关注项）")
         except Exception as e:
             print(f"[警告] 个人点评失败：{e}")
 

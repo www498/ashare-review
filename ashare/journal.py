@@ -147,6 +147,13 @@ def _judge_sell(c, code, price, match):
             reasons.append(f"持有 {hold} 天，本笔 {ret:+.1f}%")
             return "普通卖出", 0, reasons
 
+    # 当日缩量下跌：更像洗盘而不是转弱，这时候卖出容易卖在半山腰
+    vr = c.get("vol_ratio")
+    if pct < 0 and vr and vr < 0.9 and pos > 0.25:
+        reasons.append(f"当天跌 {pct:.1f}% 但量能只有前 20 日均量的 {vr:.1f} 倍")
+        reasons.append("缩量回调通常是洗盘而不是转势，此时离场容易卖在上涨中途")
+        return "卖在缩量回调", -1, reasons
+
     # 没有配对记录（卖出的是更早的底仓，或数据不全）
     if pos >= 0.85 and pct > 0:
         reasons.append(f"卖在 20 日区间 {pos:.0%} 分位、当日上涨 {pct:.1f}%")
@@ -158,6 +165,29 @@ def _judge_sell(c, code, price, match):
         return "低位卖出", -1, reasons
     reasons.append(f"当日 {pct:+.1f}%，20 日区间 {pos:.0%} 分位")
     return "普通卖出", 0, reasons
+
+
+def _outcome(rows, date, sell_px, horizons=(3, 5)):
+    """卖出之后这只票怎么走了。
+
+    刻意与 score 分开：score 只评价「卖出那一刻」的位置与量能，
+    这里记录「卖完之后的事实」。两者可能相反 —— 决策合理但卖飞了，
+    那恰恰是最值得看的一类复盘。
+    """
+    dates = [r[0] for r in rows]
+    if date not in dates:
+        return None
+    i = dates.index(date)
+    out = {}
+    for h in horizons:
+        j = i + h
+        if j < len(rows):
+            out[h] = (rows[j][1] / sell_px - 1) * 100 if sell_px else None
+    # 卖出后到最新一天的最大涨幅，用来判断「有没有走掉一大段」
+    after = [r[1] for r in rows[i + 1:]]
+    if after:
+        out["max"] = (max(after) / sell_px - 1) * 100 if sell_px else None
+    return out or None
 
 
 def build(df, col, klines=None, mapping=None, trades=None, day=None):
@@ -231,6 +261,8 @@ def build(df, col, klines=None, mapping=None, trades=None, day=None):
         else:
             verdict, score, reasons = _judge_sell(c, code, px, match)
 
+        after = _outcome(kl.get(code) or [], day, px) if act == "sell" else None
+
         rows_out.append({
             "code": code, "name": name,
             "time": str(r.get(c_time, "") or "") if c_time else "",
@@ -240,6 +272,7 @@ def build(df, col, klines=None, mapping=None, trades=None, day=None):
             "hold_days": (match or {}).get("hold_days"),
             "ret_pct": (match or {}).get("ret_pct"),
             "verdict": verdict, "score": score, "reasons": reasons,
+            "after": after,
         })
 
     if not rows_out:
@@ -268,3 +301,90 @@ def build(df, col, klines=None, mapping=None, trades=None, day=None):
             "amount": sum(x["amount"] for x in rows_out),
         },
     }
+
+
+def review_sells(df, col, klines=None, trades=None, days=20, limit=6):
+    """回看最近卖出的实际结果：卖完之后是涨了还是跌了。
+
+    和「今日复盘」分开的理由：
+    今日复盘评价「卖的那一刻合不合理」，只用当时的信息；
+    这里回答「卖完之后事实如何」。两者常常相反 —— 决策合理但卖飞了，
+    或者决策草率却侥幸躲过。分开摆，才不会被结果带偏判断。
+
+    只保留已经有 3 个交易日后续数据的记录，否则谈不上回看。
+    """
+    import pandas as pd
+
+    kl = _load(klines)
+    if not kl:
+        return None
+
+    date_col = col.get("date")
+    if not date_col or date_col not in df.columns:
+        return None
+    ser = pd.to_datetime(df[date_col], errors="coerce")
+    dates = sorted(ser.dropna().dt.strftime("%Y-%m-%d").unique())
+    if len(dates) < 2:
+        return None
+    recent = set(dates[-days:])
+
+    from .statement import _classify
+
+    c_code, c_act = col.get("code"), col.get("action")
+    c_qty, c_px = col.get("qty"), col.get("price")
+    c_name, c_time = col.get("name"), col.get("time")
+    if not all([c_code, c_act, c_qty, c_px]):
+        return None
+
+    sell_match = {}
+    for t in (trades or []):
+        sell_match.setdefault(str(t.get("sell_date"))[:10], []).append(t)
+
+    rows_out = []
+    for _, r in df.iterrows():
+        d = str(ser.loc[_])[:10]
+        if d not in recent:
+            continue
+        if _classify(r.get(c_act)) != "sell":
+            continue
+        code = str(r.get(c_code, "")).strip()
+        try:
+            px = float(r.get(c_px) or 0)
+            qty = float(r.get(c_qty) or 0)
+        except (TypeError, ValueError):
+            continue
+        if px <= 0:
+            continue
+        rows_k = kl.get(code) or []
+        after = _outcome(rows_k, d, px, horizons=(3, 5))
+        if not after or after.get(3) is None:
+            continue
+
+        name = str(r.get(c_name) or code) if c_name else code
+        match = None
+        lst = sell_match.get(d) or []
+        for t in lst:
+            if t.get("code") == code:
+                match = t
+                break
+
+        t3 = after.get(3)
+        if t3 > 3:
+            verdict = "卖飞"
+        elif t3 < -3:
+            verdict = "躲过"
+        else:
+            verdict = "无差别"
+
+        rows_out.append({
+            "date": d, "code": code, "name": name, "price": px, "qty": qty,
+            "ret_pct": (match or {}).get("ret_pct"),
+            "hold_days": (match or {}).get("hold_days"),
+            "after3": t3, "after5": after.get(5),
+            "verdict": verdict,
+        })
+
+    if not rows_out:
+        return None
+    rows_out.sort(key=lambda x: -(x["after3"] or 0))
+    return rows_out[:limit]

@@ -42,3 +42,6 @@ launch_user.txt
 # LLM 密钥，绝不入库
 llm_key.txt
 .env
+
+# 图片生成原图（只保留 assets/persona 下压缩后的版本）
+docs/art/

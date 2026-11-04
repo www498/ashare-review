@@ -109,6 +109,10 @@ def build(days=60, today_buys=5, today_sells=9, seed=20261104):
         # 亏单拿得久（10~20 天）但幅度受控（-2% ~ -9%）。
         # 这个组合既保留「盈利跑得早、亏损拖得久」的可诊断弱点，
         # 又不会让盈亏比掉到 1 以下 —— 第一版亏损单能亏到 -17%，整体就废了。
+        # 三类样本：普通赢单、亏损单、卖飞单。
+        # 卖飞单是本轮特意要造的：买入后小幅上涨就卖，卖出之后继续涨 ——
+        # 用来检验「决策当时看着合理、事后却卖早了」这类复盘。
+        fly = (rnd.random() < 0.45)
         # 先决定这一笔要赢还是要亏，再在候选日期里找符合幅度区间的组合。
         # 反过来「先随机日期、再筛收益」会把大部分赢单筛掉，
         # 最后统计出来胜率 54%，和设计的 70% 差很远。
@@ -126,9 +130,20 @@ def build(days=60, today_buys=5, today_sells=9, seed=20261104):
                 continue
             p0, p1 = rows[i0][1], rows[i1][1]
             ret = p1 / p0 - 1
-            if want_win and not (0.03 <= ret <= 0.20):
+            if fly:
+                # 卖出时只赚 3%~6%，且卖出后 5 个交易日继续上涨 4% 以上
+                if not (0.03 <= ret <= 0.06):
+                    continue
+                # 卖出后 3 个交易日内继续涨 3% 以上，才算得上「卖飞」
+                j = i1 + 3
+                if j >= len(rows):
+                    continue
+                later = rows[j][1] / p1 - 1
+                if later < 0.03:
+                    continue
+            elif want_win and not (0.03 <= ret <= 0.20):
                 continue
-            if (not want_win) and not (-0.12 <= ret <= -0.015):
+            if (not fly) and (not want_win) and not (-0.12 <= ret <= -0.015):
                 continue
             picked = (i0, i1)
             break
