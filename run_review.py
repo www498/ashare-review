@@ -474,8 +474,13 @@ def main():
                 if _card:
                     _card["news"] = _arr
                     _n += 1
-            ctx["news"] = {"total": len(_items), "stocks": _n}
-            print(f"[消息面] 当天快讯 {len(_items)} 条，命中 {_n} 只自选股")
+            # 宏观背景单独存一份：个股归因里「主要跟大盘走」时需要解释大盘为什么动，
+            # 但这类消息对所有票都一样，所以不挂到每只票上，只按需引用。
+            _macro = news_mod.macro_headlines(_items, n=5)
+            ctx["news"] = {"total": len(_items), "stocks": _n,
+                           "macro": _macro[:5]}
+            print(f"[消息面] 当天快讯 {len(_items)} 条，命中 {_n} 只自选股，"
+                  f"宏观背景 {len(_macro[:5])} 条")
     except Exception as e:
         print(f"[警告] 消息面抓取失败：{e}")
 

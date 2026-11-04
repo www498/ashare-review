@@ -195,6 +195,24 @@ def _ind_keys(ind):
     return list(dict.fromkeys(keys))
 
 
+# 个股公告常带「证监会」「央行」字样（比如立案告知书），但那不是宏观事件。
+# 判断宏观时必须先把这类排掉，否则解释「大盘为什么动」时引用的会是某家公司的雷。
+_NOT_MACRO = ("立案", "收到", "公告", "公司", "股份", "股东", "答复", "回复",
+              "减持", "质押", "问询", "停牌")
+
+
+def macro_headlines(items, n=5):
+    """全市场层面的标题，用来解释「大盘 / 板块为什么动」。"""
+    out = []
+    for it in items:
+        t = it.get("title") or ""
+        if not t or any(w in t for w in _NOT_MACRO):
+            continue
+        if any(k in t for k in GENERAL_KEYS):
+            out.append(t)
+    return out[:n]
+
+
 def attach(items, targets, limit=3, spread=3):
     """把快讯挂到每一只自选股上，而不是单独列成一个模块。
 

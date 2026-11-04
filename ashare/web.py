@@ -17,6 +17,7 @@ import os
 
 from .data import ROOT
 from . import config as C
+from . import explain
 
 MK = C.MARKET_NAME
 
@@ -152,6 +153,21 @@ table.jn td.jn-why{font-size:11.5px;color:#6b7280;line-height:1.65;max-width:400
 .nwtime{flex:0 0 auto;color:#9aa2ad;font-size:11px;font-variant-numeric:tabular-nums}
 .nwfoot{font-size:10.5px;color:#a8aeb8;margin-top:6px}
 .nwempty{font-size:12px;color:#9aa2ad;line-height:1.8;padding:3px 0}
+.exline{font-size:12.5px;color:#3c4043;line-height:1.85;margin:8px 0 0;max-width:820px}
+.exline b{color:#243043}
+.exflag{font-size:12.5px;line-height:1.8;margin-top:7px;padding:8px 12px;border-radius:8px;
+  max-width:820px}
+.exflag b{display:inline-block;margin-right:8px;font-weight:600}
+.ex-warn{background:#fff8e6;border-left:3px solid #e0a63a;color:#6b4f13}
+.ex-warn b{color:#b4530a}
+.ex-good{background:#eef8f2;border-left:3px solid #3f9c72;color:#215c43}
+.ex-good b{color:#0b7a45}
+.ex-info{background:#f2f5fa;border-left:3px solid #7a93b8;color:#33465f}
+.ex-info b{color:#1a4d8f}
+.extags{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.extag{font-size:11.5px;padding:2px 9px;border-radius:5px;background:#f1f3f6;color:#5f6368}
+.extag.bad{background:#fdecea;color:#b3261e}
+.extag.good{background:#e8f5ee;color:#0b7a45}
 .outlook{margin-top:9px;padding:9px 13px;border-radius:8px;background:#f7f9fc;
   border:1px solid #e8eef6;font-size:12.5px;line-height:1.85;color:#3c4043}
 .outlook b{color:#24405f}
@@ -640,7 +656,11 @@ def _sec_watch(h, ctx):
         vcls = "tag warn2" if verdict in ("强于板块", "弱于板块") else "tag"
         d = det_all.get(a["code"]) or {}
         has = bool(d.get("intraday") or d.get("hist20"))
-        caret = '<span class="car">▸</span>' if has else ""
+        card = (ctx.get("cards") or {}).get(a["code"])
+        # 归因只需要行情，不依赖分时数据，所以单独判断是否可展开
+        ex = explain.day_reason(a, ctx, news=(card or {}).get("news"),
+                                sector=ctx.get("sector"))
+        caret = '<span class="car">▸</span>' if (has or ex) else ""
         h.append(f'<tr class="exp" data-code="{a["code"]}"><td>{a["name"]}{caret}</td>'
                  f'<td class="n">{a["price"]:,.2f}</td>'
                  f'<td class="n {_c(a["pct"])}">{_pct(a["pct"])}</td>'
@@ -650,9 +670,33 @@ def _sec_watch(h, ctx):
                  f'<td class="n">{_pct(at["ind_median"]) if at else "—"}</td>'
                  f'<td><span class="{vcls}">{verdict}</span></td></tr>')
 
-        if not has:
+        if not has and not ex:
             continue
         h.append('<tr class="det"><td colspan="9"><div class="detbox">')
+
+        # 今日涨跌归因放在最前面：点开一只票，第一个想知道的就是「今天为什么」。
+        if ex:
+            h.append('<div class="dcell" style="flex:1 0 100%;padding-bottom:2px">')
+            h.append('<div class="t">今日为什么' +
+                     ("涨" if ex["pct"] >= 0 else "跌") + '</div>')
+            h.append(chart_attrib(ex))
+            h.append(f'<div class="exline">{ex["verdict"]}</div>')
+            sub = [ex["vol"]["text"]]
+            if ex.get("pos"):
+                sub.append(f'{ex["pos"][0]}，{ex["pos"][1]}')
+            if ex.get("gap") is not None and abs(ex["gap"]) >= 0.5:
+                sub.append(f'跳空 {ex["gap"]:+.1f}%')
+            if ex.get("flow"):
+                sub.append(ex["flow"])
+            h.append(f'<div class="exline" style="color:#5f6368">{esc("；".join(sub))}。</div>')
+            if ex.get("ind_news"):
+                # 个股相对板块的分解回答不了「板块为什么动」，这行补的就是那一层
+                h.append('<div class="exline" style="color:#5f6368">板块层面：'
+                         + "；".join(esc(t) for t in ex["ind_news"]) + '</div>')
+            for tag, tone, txt in ex["flags"]:
+                h.append(f'<div class="exflag ex-{tone}"><b>{tag}</b>{esc(txt)}</div>')
+            h.append("</div>")
+
         if d.get("intraday"):
             h.append(f'<div class="dcell"><div class="t">今日分时（虚线为昨收 '
                      f'{d.get("prev_close") or 0:,.2f}）</div>'
@@ -673,7 +717,6 @@ def _sec_watch(h, ctx):
                  f'<div class="t">明细</div>' + "<br>".join(bits) + "</div>")
 
         # 诊断块（整行宽）
-        card = (ctx.get("cards") or {}).get(a["code"])
         if card:
             h.append('<div class="dcell" style="flex:1 0 100%;border-top:1px solid #eef0f3;'
                      'padding-top:12px;margin-top:4px">')
