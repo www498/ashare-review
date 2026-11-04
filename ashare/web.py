@@ -650,7 +650,8 @@ def _sec_portfolio(h, ctx):
 
     h.append('<table><tr><th>名称</th><th class="n">数量</th><th class="n">成本</th>'
              '<th class="n">现价</th><th class="n">市值</th><th class="n">浮盈</th>'
-             '<th class="n">盈亏率</th><th class="n">今日</th><th style="width:70px">占比</th></tr>')
+             '<th class="n">盈亏率</th><th class="n">今日盈亏</th>'
+             '<th class="n">今日涨跌</th><th style="width:70px">占比</th></tr>')
     for r in p["rows"]:
         w = r["weight"] or 0
         h.append(f'<tr><td>{r["name"]}</td>'
@@ -661,6 +662,7 @@ def _sec_portfolio(h, ctx):
                  f'<td class="n {_c(r["pnl"])}">{r["pnl"]:+,.0f}</td>'
                  f'<td class="n {_c(r["pnl_pct"])}">{_pct(r["pnl_pct"])}</td>'
                  f'<td class="n {_c(r["today"])}">{r["today"]:+,.0f}</td>'
+                 f'<td class="n {_c(r.get("today_pct"))}">{_pct(r.get("today_pct"))}</td>'
                  f'<td><div style="background:#f1f3f4;border-radius:3px;height:7px;width:100%">'
                  f'<div style="background:#9fb6d9;height:7px;border-radius:3px;width:{w:.0f}%"></div>'
                  f'</div><span style="font-size:10.5px;color:#8a8f98">{w:.0f}%</span></td></tr>')

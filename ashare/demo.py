@@ -34,8 +34,9 @@ sys.path.insert(0, os.path.dirname(HERE))
 POOL = [
     ("600988", "赤峰黄金"), ("600547", "山东黄金"), ("600489", "中金黄金"),
     ("601899", "紫金矿业"), ("603993", "洛阳钼业"), ("601168", "西部矿业"),
-    ("603799", "华友钴业"), ("600111", "北方稀土"), ("688981", "中芯国际"),
-    ("603501", "韦尔股份"), ("002371", "北方华创"), ("300308", "中际旭创"),
+    ("603799", "华友钴业"), ("600111", "北方稀土"), ("600362", "江西铜业"),
+    ("002460", "赣锋锂业"), ("688981", "中芯国际"), ("603501", "韦尔股份"),
+    ("002371", "北方华创"), ("300308", "中际旭创"),
 ]
 
 MAX_SHARES = 6000
@@ -57,7 +58,7 @@ def _fee(amount, side):
     return round(f, 2)
 
 
-def build(days=60, today_buys=6, today_sells=8, seed=20261104):
+def build(days=60, today_buys=5, today_sells=9, seed=20261104):
     from ashare import mover
 
     kl = mover._load()
@@ -75,7 +76,7 @@ def build(days=60, today_buys=6, today_sells=8, seed=20261104):
 
     # ---------- 历史成交：每只票按轮次来，清仓后才允许下一轮 ----------
     attempts = 0
-    while attempts < 5000:
+    while attempts < 20000:
         attempts += 1
         left = [(c, n) for c, n in POOL if rounds.get(c, 0) < ROUNDS]
         if not left:
@@ -125,9 +126,9 @@ def build(days=60, today_buys=6, today_sells=8, seed=20261104):
                 continue
             p0, p1 = rows[i0][1], rows[i1][1]
             ret = p1 / p0 - 1
-            if want_win and not (0.04 <= ret <= 0.16):
+            if want_win and not (0.03 <= ret <= 0.20):
                 continue
-            if (not want_win) and not (-0.09 <= ret <= -0.02):
+            if (not want_win) and not (-0.12 <= ret <= -0.015):
                 continue
             picked = (i0, i1)
             break
@@ -171,19 +172,21 @@ def build(days=60, today_buys=6, today_sells=8, seed=20261104):
     order = list(hold.keys())
     rnd.shuffle(order)
     sold = 0
-    for _r in range(2):                    # 允许同一标的拆两笔减
-        for code in order:
-            if sold >= today_sells or hold.get(code, 0) < 100:
-                continue
-            rows = _rows(kl, code)
-            if len(rows) < 21 or rows[-1][0] != today:
-                continue
-            qty = 100 if hold[code] < 300 else rnd.choice([100, 200])
-            records.append({"date": today, "code": code, "name": names.get(code, code),
-                            "side": "sell", "qty": qty,
-                            "price": round(rows[-1][1] * 0.9988, 2)})
-            hold[code] -= qty
-            sold += 1
+    for code in order:
+        if sold >= today_sells or hold.get(code, 0) < 100:
+            continue
+        rows = _rows(kl, code)
+        if len(rows) < 21 or rows[-1][0] != today:
+            continue
+        # 一笔卖到底仓的 40%~70%，不同标的价位天然不同
+        ratio = rnd.choice([0.4, 0.5, 0.6, 0.7])
+        qty = max(100, int(hold[code] * ratio / 100) * 100)
+        qty = min(qty, hold[code])
+        records.append({"date": today, "code": code, "name": names.get(code, code),
+                        "side": "sell", "qty": qty,
+                        "price": round(rows[-1][1] * 0.9988, 2)})
+        hold[code] -= qty
+        sold += 1
 
     # ---------- 排序并算余额 ----------
     records.sort(key=lambda x: (x["date"], 0 if x["side"] == "buy" else 1, x["code"]))
