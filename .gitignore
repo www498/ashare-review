@@ -52,3 +52,11 @@ node_modules/
 
 # 演示片正片是中间产物，只入库拼接后的成片
 docs/demo_body.mp4
+
+# 例外：演示片用的真实界面截图是素材，必须入库 —— 本地快照不入库，
+# 没有这几张图，clone 下来就没法重出视频
+!/vid_home.png
+!/vid_dash.png
+!/vid_cf.png
+!/vid_ly.png
+!/vid_journal.png

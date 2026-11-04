@@ -6,9 +6,9 @@
 完整跑一次复盘要 3 分钟，录进去没人看；而这些界面本身是静态的，
 用「截图 + 缓慢推近 + 字幕」表达得更清楚，也方便改词重出。
 
-输出：docs/demo_body.mp4（1280x720，30fps，约 60 秒，无声）——成片的正片部分。
+输出：docs/demo_body.mp4（1280x720，30fps，约 73 秒，无声）——成片的正片部分。
 片头由 tools/make_intro.py 生成，最后用 tools/make_final_video.py 无损拼接成
-docs/demo.mp4（25s 片头 + 60s 正片 = 85s）。拆成三段是为了改文案时只重渲染一段。
+docs/demo.mp4（25s 片头 + 73s 正片 = 98s）。拆成三段是为了改文案时只重渲染一段。
 
 旁白另外配，或直接用字幕——无声版在 B 站也能看。
 
@@ -50,8 +50,12 @@ SCENES = [
          cap="今天为什么涨：大盘 + 板块 + 个股，三段可直接相加"),
     dict(kind="shot", img="vid_ly.png", box=(0, 88, 1280, 808), dur=12,
          cap="涨了 3.6% 却跑输 6.1% 的板块，量还放大了 —— 借势出货"),
-    dict(kind="title", dur=8,
-         t1="5577 只 · 6 秒 · 单文件", t2="断网可开 · 数据全部本地计算"),
+    # 收尾落在「每一笔操作」上，而不是堆技术指标：这是产品真正的差异点。
+    # 同一张真实看板截图取两个窗口，像镜头往下移：先逐笔判断，再卖出后回看。
+    dict(kind="shot", img="vid_journal.png", box=(0, 0, 1280, 720), dur=12,
+         cap="今天 11 手逐笔复盘：该不该买/卖，只用成交当时的数据判断"),
+    dict(kind="shot", img="vid_journal.png", box=(0, 470, 1280, 1190), dur=9,
+         cap="卖出后 3/5 日回看：卖飞还是躲过，结果和决策质量分开算"),
 ]
 
 
@@ -71,9 +75,11 @@ def caption_bar(canvas, text):
     d = ImageDraw.Draw(canvas, "RGBA")
     f = font(30)
     tw = d.textlength(text, font=f)
-    pad_x, pad_y = 26, 14
+    # 压扁并贴到底边：逐笔复盘那两帧的表格一直排到画面下方，
+    # 原来 58px 高、离底 44px 的字幕条会盖掉最后一行和说明文字。
+    pad_x, pad_y = 26, 10
     bw, bh = int(tw) + pad_x * 2, 30 + pad_y * 2
-    x0, y0 = (W - bw) // 2, H - bh - 44
+    x0, y0 = (W - bw) // 2, H - bh - 20
     d.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=10, fill=(8, 16, 34, 205))
     d.text((x0 + pad_x, y0 + pad_y - 2), text, font=f, fill=(240, 245, 252))
     return canvas
