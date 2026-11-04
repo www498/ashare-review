@@ -349,6 +349,14 @@ def _sec_profile(L, ctx):
             L.append(f"> **只改一件事**　{per['fix']}")
             L.append("")
 
+    pb = p.get("playbook")
+    if pb:
+        L.append("### 遇到这些情况，这样做")
+        L.append("")
+        for r in pb:
+            L.append(f"- **{r['when']}**　{r['what']}")
+        L.append("")
+
     if p.get("tags"):
         L.append("### 行为标签")
         L.append("")

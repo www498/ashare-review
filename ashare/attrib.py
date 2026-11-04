@@ -133,6 +133,9 @@ SYSTEM_PERSONAL = """你是一个交易复盘教练，正在帮一个普通投�
 3. 具体优于华丽：说「亏损单平均拿 12 天，盈利单只拿 4 天」比说「你有处置效应」有用。
 4. 语气像一个了解他的朋友，可以直接，但不刻薄。
 5. 两段都控制在 60~110 字。
+6. 讲板块时必须说「板块相对大盘 +x.xpp」，不能写成「板块上涨 x.x%」——
+   数据里的板块项是**相对大盘的超额**，不是板块绝对涨跌幅。
+7. 个股那句直接用数据里的「主导因素」，不要自己另下判断。
 
 输出 JSON，不要 markdown 代码块：
 {"profile": "对这个人的交易风格点评：先说做得好的地方，再说最该改的一件事",
@@ -174,9 +177,9 @@ def personal(ctx):
                 "名称": m.get("name") or code,
                 "行业": m.get("industry"),
                 "近5日涨跌": round(m.get("total") or 0, 2),
-                "大盘贡献pp": round(m.get("market") or 0, 2),
-                "板块贡献pp": round(m.get("industry_part") or 0, 2),
-                "个股自身pp": round(m.get("firm") or 0, 2),
+                "大盘pp": round(m.get("market") or 0, 2),
+                "板块超额pp_相对大盘": round(m.get("industry_part") or 0, 2),
+                "个股超额pp_相对板块": round(m.get("firm") or 0, 2),
                 "主导因素": m.get("driver"),
                 "最大波动日": (m.get("key_day") or {}).get("date"),
                 "最大单日涨跌": round((m.get("key_day") or {}).get("pct") or 0, 2),

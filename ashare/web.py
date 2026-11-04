@@ -120,6 +120,14 @@ tr.det>td{background:#fbfcfd;border-bottom:1px solid #eef0f3;padding:0}
 .persona .pai{margin-top:12px;padding:11px 14px;border-radius:9px;background:#fff;
   border:1px solid #edf1f7;font-size:12.8px;color:#3c4043;line-height:1.85}
 .persona .pai .tag2{font-size:10.5px;color:#8a8f98;font-weight:400;margin-left:6px}
+.pbk{margin-top:15px;border-top:1px dashed #dbe3ee;padding-top:14px}
+.pbk .pbt{font-size:13px;font-weight:600;color:#3c4043;margin-bottom:4px}
+.pbk .row{display:flex;gap:16px;padding:10px 0;border-bottom:1px solid #f2f4f7}
+.pbk .row:last-child{border-bottom:none;padding-bottom:2px}
+.pbk .when{flex:0 0 170px;font-size:12.2px;color:#b4530a;font-weight:600;line-height:1.75}
+.pbk .what{flex:1;font-size:12.5px;color:#4a5058;line-height:1.8}
+.pbk .row.pb-good .when{color:#0b7a45}
+.pbk .row.pb-info .when{color:#3f5fa8}
 details.fold{margin-top:14px;border-top:1px solid #eef0f3;padding-top:11px}
 details.fold summary{cursor:pointer;font-size:12.5px;color:#4a6fa5;padding:3px 0;
   user-select:none;font-weight:500}
@@ -750,6 +758,15 @@ def _sec_profile(h, ctx):
         if per.get("ai"):
             h.append(f'<div class="pai">{per["ai"]}'
                      f'<span class="tag2">AI 生成 · 数字来自交割单</span></div>')
+        h.append("</div>")
+
+    pb = p.get("playbook")
+    if pb:
+        h.append('<div class="pbk"><div class="pbt">遇到这些情况，这样做</div>')
+        for r in pb:
+            h.append(f'<div class="row pb-{r.get("tone") or "info"}">'
+                     f'<div class="when">{r["when"]}</div>'
+                     f'<div class="what">{r["what"]}</div></div>')
         h.append("</div>")
 
     if p.get("tags"):

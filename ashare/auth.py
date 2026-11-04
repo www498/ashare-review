@@ -276,3 +276,55 @@ def paths(uid):
             "positions": os.path.join(d, "positions.csv"),
             "reports": os.path.join(d, "reports"),
             "snapshots": os.path.join(d, "snapshots")}
+
+
+def reset_password(username, new):
+    """本地重置密码，**不校验旧密码**。
+
+    只用于命令行救急（`python -m ashare.auth --reset 枫叶 --password xxx`），
+    HTTP 接口不暴露这条路径 —— 否则任何人都能改别人的密码。
+    """
+    key = (username or "").strip().lower()
+    err = validate(username, new)
+    if err:
+        return False, err
+    with _LOCK:
+        db = _load()
+        rec = db["users"].get(key)
+        if not rec:
+            return False, f"账号「{username}」不存在"
+        salt = secrets.token_bytes(16)
+        rec["salt"] = salt.hex()
+        rec["hash"] = _hash(new, salt)
+        # 重置后清掉该账号所有会话，避免旧登录态继续有效
+        db["sessions"] = {k: v for k, v in db.get("sessions", {}).items()
+                          if v.get("uid") != rec.get("uid")}
+        _save(db)
+        return True, f"已重置「{rec.get('username')}」的密码，并清空其登录会话"
+
+
+def _cli():
+    import argparse
+    ap = argparse.ArgumentParser(description="账号维护工具")
+    ap.add_argument("--list", action="store_true", help="列出账号")
+    ap.add_argument("--reset", metavar="用户名", help="重置密码（不需要旧密码）")
+    ap.add_argument("--password", help="配合 --reset 使用的新密码")
+    a = ap.parse_args()
+
+    if a.list:
+        for name, rec in _load()["users"].items():
+            print(f"  {rec.get('username'):<10} uid={rec.get('uid')}  "
+                  f"建号 {rec.get('created_at')}  上次登录 {rec.get('last_login') or '—'}")
+        return
+    if a.reset:
+        if not a.password:
+            print("缺少 --password")
+            return
+        ok, msg = reset_password(a.reset, a.password)
+        print(("成功：" if ok else "失败：") + msg)
+        return
+    ap.print_help()
+
+
+if __name__ == "__main__":
+    _cli()

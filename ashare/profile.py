@@ -204,7 +204,8 @@ def build(df, col, positions=None, quotes=None):
     tags = _tags(core, per_stock)
     return {"core": core, "trades": trades, "per_stock": per_stock,
             "tags": tags, "findings": _findings(core, per_stock),
-            "persona": persona(core, per_stock, tags)}
+            "persona": persona(core, per_stock, tags),
+            "playbook": playbook(core, trades, per_stock, positions, quotes)}
 
 
 def persona(c, per_stock, tags=None):
@@ -282,6 +283,107 @@ def persona(c, per_stock, tags=None):
         "facts": facts,
         "fix": fix,
     }
+
+
+def _max_loss_streak(trades):
+    """最长连续亏损笔数。用来定「连亏几笔该降仓」这条规则。"""
+    mx = cur = 0
+    for t in trades:
+        if (t.get("pnl") or 0) < 0:
+            cur += 1
+            mx = max(mx, cur)
+        else:
+            cur = 0
+    return mx
+
+
+def playbook(c, trades, per_stock, positions=None, quotes=None):
+    """应对手册：把画像指标翻译成「什么情况下做什么」。
+
+    与 persona 的分工：persona 回答「你是什么样的人」，playbook 回答「下次遇到怎么办」。
+    每条都必须绑定他自己的数字（平均亏损幅度、平均持有天数、最大连亏笔数），
+    否则就是「要止损、要拿住」这种谁都会说的空话。
+    """
+    out = []
+    al = c.get("avg_loss_pct")
+    aw = c.get("avg_win_pct")
+    hw, hl = c.get("hold_win"), c.get("hold_loss")
+
+    # 1) 止损线：用他自己的平均亏损幅度定，不套通用的 -5%
+    if al is not None and al < -1:
+        line = round(al * 0.6, 1)
+        tail = ""
+        if hw and hl:
+            tail = (f"你过去的亏损单平均拿到 {hl:.0f} 天、亏 {abs(al):.1f}%，"
+                    f"而盈利单只拿 {hw:.0f} 天 —— 拖延是你亏钱的主要方式。")
+        out.append({
+            "when": f"单笔浮亏到 {line:.1f}%",
+            "what": f"收盘前减掉一半或全部，不要等回本。{tail}",
+            "tone": "warn",
+        })
+
+    # 2) 止盈：他平均赚多少就跑，但最大赚过多少
+    if aw is not None and aw > 1:
+        out.append({
+            "when": f"盈利到 +{aw * 1.6:.1f}%",
+            "what": (f"先卖一半，剩下的用回落止盈拿着。你平均只赚 {aw:.1f}% 就跑，"
+                     f"但最大赚过 {c.get('best_pct') or 0:.1f}% —— "
+                     f"拿得住的能力你有，只是没给它机会。"),
+            "tone": "good",
+        })
+
+    # 3) 连亏降仓
+    streak = _max_loss_streak(trades)
+    if streak >= 2:
+        out.append({
+            "when": f"连续 {streak} 笔亏损之后",
+            "what": ("把仓位降到平时的一半，重新做对 2 笔再加回来。"
+                     "连亏时判断已经和行情脱节，这时候放大仓位只会放大错误。"),
+            "tone": "warn",
+        })
+
+    # 4) 费用摩擦
+    fr = c.get("fee_vs_pnl")
+    if fr is not None and fr >= 0.4:
+        out.append({
+            "when": "同一个月内第 3 次买同一只票",
+            "what": (f"停手。你的手续费已相当于已实现盈亏的 {fr:.0%}，"
+                     f"再高的胜率也补不回摩擦成本。"),
+            "tone": "warn",
+        })
+
+    # 5) 集中度
+    if positions and quotes:
+        mv = {}
+        for code, p in positions.items():
+            px = (quotes.get(code) or {}).get("price")
+            if px and p.get("shares"):
+                mv[code] = px * p["shares"]
+        tot = sum(mv.values())
+        if tot > 0:
+            top_code, top_val = max(mv.items(), key=lambda kv: kv[1])
+            share = top_val / tot
+            if share >= 0.35:
+                nm = (quotes.get(top_code) or {}).get("name") or top_code
+                out.append({
+                    "when": f"{nm} 占比已到 {share:.0%}",
+                    "what": ("加仓前先问自己：这是主动判断，还是因为它涨得好所以没卖？"
+                             "单票超过三分之一时，一次意外就能抹掉几个月的胜率优势。"),
+                    "tone": "warn",
+                })
+
+    # 6) 区分板块与个股：这条接的是多日归因
+    if per_stock:
+        worst = min(per_stock, key=lambda x: x["pnl"])
+        if worst["pnl"] < 0 and worst["n"] >= 2:
+            out.append({
+                "when": f"{worst['name']} 再次下跌",
+                "what": (f"先看所属板块当天是不是也在跌。板块在涨它独跌（归因里「个股超额」为负），"
+                         f"就去查公告和资金，不要补仓摊平 —— 你已经在这只票上交易 "
+                         f"{worst['n']} 次、累计 {worst['pnl']:+.0f} 元。"),
+                "tone": "info",
+            })
+    return out
 
 
 def _tags(c, per_stock):

@@ -21,30 +21,50 @@ import requests
 DEFAULT_BASE = "https://api.deepseek.com/v1"
 DEFAULT_MODEL = "deepseek-chat"
 
+# 配置的模型不可用时的备选。中转站常有「列表里有、实际 404/405」的情况。
+FALLBACK_MODELS = ("deepseek-v4.1-flash", "deepseek-v4-flash", "deepseek-chat")
+
 # 不想配环境变量时，把 key 单独写进这个文件（一行，只有 key）。
 # 文件名带 key 字样，.gitignore 已排除，不会被推到公开仓库。
 KEY_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "llm_key.txt")
 
 
-def _file_key():
+def _file_conf():
+    """读 llm_key.txt。支持两种写法：
+
+        sk-xxxx                         只有 key，用默认 DeepSeek 官方地址
+        key=sk-xxxx                     key=value 形式，可同时指定中转站与模型
+        base_url=https://.../v1
+        model=deepseek-v4-pro
+
+    中转站（如 api.uniportai.com）的地址与模型名都和官方不同，
+    只给 key 是跑不起来的，所以配置文件必须能带这两项。
+    """
+    conf = {}
     try:
         with open(KEY_FILE, encoding="utf-8") as f:
             for line in f:
                 s = line.strip()
-                if s and not s.startswith("#"):
-                    return s
+                if not s or s.startswith("#"):
+                    continue
+                if "=" in s:
+                    k, _, v = s.partition("=")
+                    conf[k.strip().lower()] = v.strip()
+                else:
+                    conf.setdefault("key", s)
     except OSError:
         pass
-    return None
+    return conf
 
 
 def _cfg():
+    fc = _file_conf()
     return (
         os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
-        or os.getenv("OPENAI_API_KEY") or _file_key(),
-        os.getenv("LLM_BASE_URL", DEFAULT_BASE),
-        os.getenv("LLM_MODEL", DEFAULT_MODEL),
+        or os.getenv("OPENAI_API_KEY") or fc.get("key"),
+        os.getenv("LLM_BASE_URL") or fc.get("base_url") or DEFAULT_BASE,
+        os.getenv("LLM_MODEL") or fc.get("model") or DEFAULT_MODEL,
     )
 
 
@@ -59,11 +79,33 @@ def chat(messages, temperature=0.3, timeout=60, json_mode=False):
     payload = {"model": model, "messages": messages, "temperature": temperature}
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
-    r = requests.post(f"{base}/chat/completions",
-                      headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                      json=payload, timeout=timeout)
-    r.raise_for_status()
-    return r.json()["choices"][0]["message"]["content"]
+
+    # 中转站经常「模型列表里有、实际路由不可用」（返回 404/405）。
+    # 这种情况不该让整份复盘生成失败，按顺序退到备用模型，
+    # 并把实际用的模型打出来，避免用户以为在用 A 其实跑的是 B。
+    tried = []
+    for m in [model] + [x for x in FALLBACK_MODELS if x != model]:
+        payload["model"] = m
+        try:
+            r = requests.post(f"{base}/chat/completions",
+                              headers={"Authorization": f"Bearer {key}",
+                                       "Content-Type": "application/json"},
+                              json=payload, timeout=timeout)
+        except requests.RequestException as e:
+            tried.append(f"{m}(网络)")
+            if m == FALLBACK_MODELS[-1]:
+                raise RuntimeError(f"全部模型请求失败：{tried}，最后错误 {e}") from e
+            continue
+
+        if r.status_code in (404, 405) or r.status_code >= 500:
+            tried.append(f"{m}({r.status_code})")
+            continue
+        r.raise_for_status()
+        if m != model:
+            print(f"[提示] {model} 不可用（{tried}），已自动改用 {m}")
+        return r.json()["choices"][0]["message"]["content"]
+
+    raise RuntimeError(f"没有可用模型：{tried}")
 
 
 # ---------- 数字溯源校验 ----------
