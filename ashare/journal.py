@@ -356,6 +356,10 @@ def build(df, col, klines=None, mapping=None, trades=None, day=None):
     if not rows_out:
         return None
 
+    # 按成交时间排：复盘看的是「这一天的操作顺序」，交割单原始行序没有意义。
+    # 没有时间列的老数据排在最后，保持相对顺序。
+    rows_out.sort(key=lambda x: (x.get("time") or "99:99"))
+
     buys = [x for x in rows_out if x["action"] == "buy"]
     sells = [x for x in rows_out if x["action"] == "sell"]
     weak = [x for x in rows_out if x["rate"] < 50]

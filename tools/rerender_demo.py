@@ -69,6 +69,12 @@ def main():
     if sr:
         ctx["sell_review"] = sr
 
+    # 回写快照：主页、截图工具、后续重渲染都从快照取数，
+    # 只写 HTML 不回写会造成「页面是新的、快照是旧的」。
+    if "--no-write" not in sys.argv:
+        with open(snap_fp, "w", encoding="utf-8") as f:
+            json.dump(ctx, f, ensure_ascii=False, separators=(",", ":"))
+
     html = web.render_html(ctx)
     out = os.path.join(base, "reports", f"dashboard_{day.replace('-', '')}_{session}.html")
     os.makedirs(os.path.dirname(out), exist_ok=True)
