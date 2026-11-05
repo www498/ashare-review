@@ -1,55 +1,35 @@
 <Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>5577 只、42 秒、一个文件</Text>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>三个基准，别混着看</Text>
     <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
 
-    <Box style={{ flexDirection: 'row', gap: 40, marginTop: 24, height: 190 }}>
-        <Box style={{ width: 460, flexDirection: 'column', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 96, fontWeight: 'bold', color: '#B08D57', letterSpacing: -2 }}>5,577</Text>
-            <Text style={{ fontSize: 18, color: '#3F4A55', marginTop: 2 }}>只个股，沪深京全量覆盖</Text>
+    <Box style={{ flexDirection: 'row', gap: 28, marginTop: 24, height: 458 }}>
+        <Box style={{ width: 340, height: 458, background: '#1E3A5F', borderRadius: 8, padding: 24, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>三个百分比</Text>
+            <Text style={{ fontSize: 18, color: '#C9D6E6', lineHeight: 1.85, marginTop: 12 }}>
+                本笔 = 卖价 ÷ 成本 − 1<br />
+                卖后 = N 日后 ÷ 卖价 − 1<br />
+                至今 = 最新 ÷ 成本 − 1
+            </Text>
+            <Box style={{ width: 292, height: 1, background: 'rgba(255,255,255,0.16)', marginTop: 14, marginBottom: 12 }} />
+            <Text style={{ fontSize: 18, color: '#9FB2C8', lineHeight: 1.8 }}>
+                中金黄金 10-30：<br />
+                成本 21.34 → 卖 19.21 → 3 日后 20.38
+            </Text>
+            <Text style={{ fontSize: 18, color: '#FFFFFF', lineHeight: 1.85, marginTop: 8 }}>
+                本笔 −10.0%　卖后 +6.1%（对卖价）<br />
+                至今 −4.5%（对成本）
+            </Text>
         </Box>
-        <Box style={{ width: 660, flexDirection: 'row', gap: 30, alignItems: 'center' }}>
-            {[
-                ['42s', '生成一份完整复盘'],
-                ['1', '个 HTML 文件，无后端'],
-                ['18', '项离线自检全部通过'],
-            ].map(function (it, i) {
-                return (
-                    <Box key={i} style={{ width: 200, flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 12 }}>
-                        <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>{it[0]}</Text>
-                        <Text style={{ fontSize: 18, color: '#64748B', marginTop: 4, lineHeight: 1.6 }}>{it[1]}</Text>
-                    </Box>
-                );
-            })}
-        </Box>
-    </Box>
 
-    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 28, height: 200 }}>
-        <Box style={{ width: 330, height: 170, background: '#F4F6F9', borderRadius: 8, padding: 20, flexDirection: 'column' }}>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>四个数据源</Text>
-            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.9, marginTop: 8 }}>
-                腾讯行情 · 新浪日 K<br />
-                东财资金流 · baostock 行业
-            </Text>
-        </Box>
-        <Text style={{ fontSize: 22, color: '#64748B' }}>→</Text>
-        <Box style={{ width: 330, height: 170, background: '#F4F6F9', borderRadius: 8, padding: 20, flexDirection: 'column' }}>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>本地计算</Text>
-            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.9, marginTop: 8 }}>
-                宽度 / 温度 / 归因<br />
-                FIFO 成本 / 画像 / 时点评分
-            </Text>
-        </Box>
-        <Text style={{ fontSize: 22, color: '#64748B' }}>→</Text>
-        <Box style={{ width: 330, height: 170, background: '#1E3A5F', borderRadius: 8, padding: 20, flexDirection: 'column' }}>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>单文件输出</Text>
-            <Text style={{ fontSize: 18, color: '#C9D6E6', lineHeight: 1.9, marginTop: 8 }}>
-                一个 HTML，双击即开<br />
-                断网也能看，不依赖服务端
+        <Box style={{ width: 792, flexDirection: 'column' }}>
+            <Image src="assets/sellreview.png" style={{ width: 792, height: 348, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
+            <Text style={{ fontSize: 18, color: '#1A1A1A', lineHeight: 1.7, marginTop: 10 }}>
+                卖后 +6.1% 只说「卖完又涨了 6.1%」，不是回本；<span style={{ fontWeight: 'bold' }}>相对成本仍 −4.5%</span>。
             </Text>
         </Box>
     </Box>
 
-    <Box style={{ width: 1160, height: 56, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>数字由程序算，AI 只负责解释；解释里的每个数字都要能溯源校验。</Text>
+    <Box style={{ width: 1160, height: 52, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>基准不同，结论就不同 —— 三个数一起看，才是这笔卖出的全貌。</Text>
     </Box>
 </Slide>

@@ -1,35 +1,49 @@
 <Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>每一手，都有一个 0–100 的合理性</Text>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>不同的人，不同的改法</Text>
     <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
+    <Text style={{ fontSize: 18, color: '#64748B', marginTop: 10 }}>
+        同一套算法，阈值从你自己的成交里推：这位是「浮亏 −8% 减仓、浮盈 +5.9% 起分批」。
+    </Text>
 
-    <Box style={{ flexDirection: 'row', gap: 36, marginTop: 24, height: 430 }}>
-        <Box style={{ width: 520, flexDirection: 'column' }}>
-            <Text style={{ fontSize: 18, color: '#64748B' }}>今天 11 手的中位合理性</Text>
-            <Box style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 2 }}>
-                <Text style={{ fontSize: 110, fontWeight: 'bold', color: '#B08D57', letterSpacing: -2 }}>50</Text>
-                <Text style={{ fontSize: 22, color: '#64748B', marginBottom: 16, marginLeft: 10 }}>/ 100</Text>
+    <Box style={{ flexDirection: 'row', gap: 28, marginTop: 16, height: 400 }}>
+        <Box style={{ width: 566, height: 400, background: '#F4F6F9', borderRadius: 8, padding: 24, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#B4530A' }}>单笔浮亏到 −8.0%</Text>
+            <Text style={{ fontSize: 18, color: '#64748B', lineHeight: 1.7, marginTop: 4 }}>
+                亏损单平均拿 26 天、亏 9.4%；盈利单只拿 10 天、赚 5.4%。
+            </Text>
+            <Text style={{ fontSize: 18, color: '#1A1A1A', lineHeight: 1.8, marginTop: 10 }}>
+                先看：破 20 日线没有？板块近 3 日强弱？<br />
+                大盘跌家数是否超过 3000？
+            </Text>
+            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.85, marginTop: 10 }}>
+                <span style={{ fontWeight: 'bold' }}>板块强 + 缩量回踩</span>　减三分之一，止损放前低下方 2%<br />
+                <span style={{ fontWeight: 'bold' }}>板块弱 + 放量破位</span>　当天减半，次日站不回就清
+            </Text>
+            <Box style={{ marginTop: 'auto', background: '#FFF6E8', borderRadius: 6, padding: '8px 12px' }}>
+                <Text style={{ fontSize: 18, color: '#8A5310' }}>收手：亏损单不超过 10 天</Text>
             </Box>
-
-            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.95, marginTop: 14 }}>
-                <span style={{ fontWeight: 'bold' }}>位置层 45%</span>　当日分位、量能、持有天数<br />
-                <span style={{ fontWeight: 'bold' }}>时点层 55%</span>　成交前 30 分钟、日内位置
-            </Text>
-
-            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.9, marginTop: 14 }}>
-                同一页里从 26 到 65：赤峰黄金涨停追入 26，<br />
-                紫金矿业高位兑现 65 —— 分数让每一手能横向比较。
-            </Text>
         </Box>
 
-        <Box style={{ width: 600, flexDirection: 'column' }}>
-            <Image src="assets/journal.png" style={{ width: 600, height: 385, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
-            <Text style={{ fontSize: 18, color: '#64748B', lineHeight: 1.7, marginTop: 10 }}>
-                真实看板：成本价、成交时间、合理性并列
+        <Box style={{ width: 566, height: 400, background: '#1E3A5F', borderRadius: 8, padding: 24, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>浮盈到 +5.9%</Text>
+            <Text style={{ fontSize: 18, color: '#9FB2C8', lineHeight: 1.7, marginTop: 4 }}>
+                平均赚 5.4% 就跑，最大赚过 15.1%；胜率 65% 说明选股是准的。
             </Text>
+            <Text style={{ fontSize: 18, color: '#E6EDF7', lineHeight: 1.8, marginTop: 10 }}>
+                先看：板块资金连续流入？跌破 5 日线？<br />
+                当日量能是否超过 2 倍（放量滞涨）？
+            </Text>
+            <Text style={{ fontSize: 18, color: '#C9D6E6', lineHeight: 1.85, marginTop: 10 }}>
+                <span style={{ fontWeight: 'bold', color: '#FFFFFF' }}>板块仍强</span>　卖三分之一，剩余用 5 日线止盈<br />
+                <span style={{ fontWeight: 'bold', color: '#FFFFFF' }}>转弱 / 滞涨</span>　卖一半，止盈线收到 10 日线
+            </Text>
+            <Box style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.10)', borderRadius: 6, padding: '8px 12px' }}>
+                <Text style={{ fontSize: 18, color: '#E6EDF7' }}>收手：浮盈超 +11.8% 留四分之一跟趋势</Text>
+            </Box>
         </Box>
     </Box>
 
-    <Box style={{ width: 1160, height: 56, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>时点层只用成交前的分时，之后的走势不参与评分。</Text>
+    <Box style={{ width: 1160, height: 52, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center', marginTop: 16 }}>
+        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>建议不是「亏了要割、涨了要卖」，是「到这个位置，先看这三件事，分两档动手」。</Text>
     </Box>
 </Slide>

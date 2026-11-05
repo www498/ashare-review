@@ -74,6 +74,15 @@ def main():
     web._sec_watch(h, ctx)
     shot("03-watch", "".join(h), height=3000)
 
+    # 单只自选股的展开详情：只保留一只，并把详情行展开（静态页默认折叠）
+    one = dict(ctx)
+    one["anomalies"] = [a for a in (ctx.get("anomalies") or []) if a.get("code") == "600988"]
+    if one["anomalies"]:
+        h = []
+        web._sec_watch(h, one)
+        body = "".join(h).replace('<tr class="det">', '<tr class="det open">')
+        shot("04-watch-cf", body, height=2400)
+
 
 if __name__ == "__main__":
     main()
