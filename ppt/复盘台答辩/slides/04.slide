@@ -1,5 +1,5 @@
 <Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>一页看全：市场、账户、每一笔</Text>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>首屏就是入口：市场、账户、每一笔</Text>
     <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
 
     <Box style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 14 }}>
@@ -9,8 +9,8 @@
     <Box style={{ flexDirection: 'row', gap: 40, marginTop: 12 }}>
         {[
             ['01', '首屏', '5,577 只的市场，和你的 31 笔'],
-            ['02', '画像', '16 型、四维坐标、怎么改'],
-            ['03', '逐笔', '11 手的 0–100 合理性'],
+            ['02', '往下', '16 型画像、四维、怎么改'],
+            ['03', '再往下', '11 手逐笔、卖后回看'],
         ].map(function (it, i) {
             return (
                 <Box key={i} style={{ width: 360, flexDirection: 'row', alignItems: 'baseline' }}>

@@ -26,12 +26,9 @@
         </Box>
 
         <Box style={{ width: 792, flexDirection: 'column' }}>
-            <Image src="assets/sellreview.png" style={{ width: 792, height: 309, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
-            <Text style={{ fontSize: 18, color: '#1A1A1A', lineHeight: 1.85, marginTop: 14 }}>
-                华友钴业：−10.7% 卖出，5 日后 −0.2%，但<span style={{ fontWeight: 'bold' }}>相对成本仍 −11.1%</span> —— 卖掉并没有回本。
-            </Text>
-            <Text style={{ fontSize: 18, color: '#64748B', lineHeight: 1.8, marginTop: 4 }}>
-                每笔下面还有一句总结：按当时的形态判断，不因为后来涨了就判对错。
+            <Image src="assets/sellreview.png" style={{ width: 792, height: 370, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
+            <Text style={{ fontSize: 18, color: '#1A1A1A', lineHeight: 1.75, marginTop: 10 }}>
+                华友钴业 −10.7% 卖出，5 日后 −0.2%，<span style={{ fontWeight: 'bold' }}>相对成本仍 −11.1%</span> —— 卖掉没回本。
             </Text>
         </Box>
     </Box>

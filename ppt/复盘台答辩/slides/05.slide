@@ -4,14 +4,9 @@
 
     <Box style={{ flexDirection: 'row', gap: 40, marginTop: 26, height: 430 }}>
         <Box style={{ width: 660, flexDirection: 'column' }}>
-            <Image src="assets/profile.png" style={{ width: 660, height: 250, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
-            <Text style={{ fontSize: 18, color: '#64748B', marginTop: 12, lineHeight: 1.7 }}>
-                真实看板：SACD 采药人、四维坐标、16 型全谱。<br />
-                不是问卷测出来的，是 31 笔成交算出来的。
-            </Text>
-            <Box style={{ width: 660, height: 1, background: '#E5E9F0', marginTop: 16, marginBottom: 14 }} />
-            <Text style={{ fontSize: 18, color: '#1A1A1A', lineHeight: 1.8 }}>
-                四维：节奏、归因、盈亏、持仓，各二选一。
+            <Image src="assets/profile.png" style={{ width: 660, height: 360, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
+            <Text style={{ fontSize: 18, color: '#64748B', marginTop: 12 }}>
+                真实看板：SACD 采药人、四维坐标、16 型全谱。
             </Text>
         </Box>
 

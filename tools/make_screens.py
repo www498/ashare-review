@@ -61,7 +61,10 @@ def main():
     print("渲染截图：")
     h = []
     web._sec_profile(h, ctx, compact=True)
-    shot("01-profile", "".join(h))
+    # 截图时把「16 型全谱」展开：折叠状态下截出来的图看不懂
+    body = "".join(h).replace('<details class="fold mb16">',
+                              '<details class="fold mb16" open>')
+    shot("01-profile", body)
 
     h = []
     web._sec_journal(h, ctx)
