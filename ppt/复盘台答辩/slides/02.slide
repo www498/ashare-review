@@ -2,7 +2,7 @@
     <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>收盘后，你看到的只有市场</Text>
     <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
 
-    <Box style={{ flexDirection: 'row', gap: 40, marginTop: 32, height: 416 }}>
+    <Box style={{ flexDirection: 'row', gap: 40, marginTop: 24, height: 386 }}>
         <Box style={{ width: 700, flexDirection: 'column' }}>
             <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8 }}>
                 4,662 只上涨、774 只下跌，成交 20,495 亿，124 家涨停。<br />
@@ -24,7 +24,7 @@
             </Box>
         </Box>
 
-        <Box style={{ width: 420, height: 416, background: '#1E3A5F', borderRadius: 8, padding: 32, flexDirection: 'column', justifyContent: 'center' }}>
+        <Box style={{ width: 420, height: 386, background: '#1E3A5F', borderRadius: 8, padding: 32, flexDirection: 'column', justifyContent: 'center' }}>
             <Text style={{ fontSize: 18, color: '#9FB2C8' }}>今天有</Text>
             <Text style={{ fontSize: 110, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: -2, marginTop: 4 }}>5,577</Text>
             <Text style={{ fontSize: 18, color: '#C9D6E6', marginTop: 2 }}>只个股在动</Text>
@@ -34,9 +34,14 @@
         </Box>
     </Box>
 
-    <Box style={{ width: 1160, height: 64, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center', marginTop: 20 }}>
+    <Box style={{ width: 1160, height: 64, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center', marginTop: 16 }}>
         <Text style={{ fontSize: 18, color: '#1A1A1A' }}>
             行情软件回答「市场怎么了」，没有一个字回答「你做得怎么样」。
         </Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+        <Text style={{ fontSize: 15, color: '#64748B' }}>在线演示　</Text>
+        <Text style={{ fontSize: 15, color: '#1E3A5F', fontWeight: 'bold' }}>http://120.24.249.193:8080/</Text>
     </Box>
 </Slide>
