@@ -1,0 +1,42 @@
+<Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>卖飞还是躲过，三个基准分开算</Text>
+    <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
+
+    <Box style={{ flexDirection: 'row', gap: 28, marginTop: 26, height: 430 }}>
+        <Box style={{ width: 340, height: 430, background: '#1E3A5F', borderRadius: 8, padding: 28, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>三个基准</Text>
+            <Text style={{ fontSize: 18, color: '#9FB2C8', marginTop: 4, marginBottom: 10 }}>混着看，必然误读</Text>
+
+            <Box style={{ flexDirection: 'column', borderTop: '1px solid rgba(255,255,255,0.14)', paddingTop: 14, paddingBottom: 14 }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>本笔</Text>
+                <Text style={{ fontSize: 18, color: '#C9D6E6' }}>相对买入成本</Text>
+            </Box>
+            <Box style={{ flexDirection: 'column', borderTop: '1px solid rgba(255,255,255,0.14)', paddingTop: 14, paddingBottom: 14 }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>卖后 3 / 5 日</Text>
+                <Text style={{ fontSize: 18, color: '#C9D6E6' }}>相对卖出价</Text>
+            </Box>
+            <Box style={{ flexDirection: 'column', borderTop: '1px solid rgba(255,255,255,0.14)', borderBottom: '1px solid rgba(255,255,255,0.14)', paddingTop: 14, paddingBottom: 14 }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>若持有至今</Text>
+                <Text style={{ fontSize: 18, color: '#C9D6E6' }}>仍相对买入成本</Text>
+            </Box>
+
+            <Text style={{ fontSize: 18, color: '#9FB2C8', lineHeight: 1.8, marginTop: 16 }}>
+                卖后 −0.2% 只说明卖完没涨，<br />不代表已经回本。
+            </Text>
+        </Box>
+
+        <Box style={{ width: 792, flexDirection: 'column' }}>
+            <Image src="assets/sellreview.png" style={{ width: 792, height: 309, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
+            <Text style={{ fontSize: 18, color: '#1A1A1A', lineHeight: 1.85, marginTop: 14 }}>
+                华友钴业：−10.7% 卖出，5 日后 −0.2%，但<span style={{ fontWeight: 'bold' }}>相对成本仍 −11.1%</span> —— 卖掉并没有回本。
+            </Text>
+            <Text style={{ fontSize: 18, color: '#64748B', lineHeight: 1.8, marginTop: 4 }}>
+                每笔下面还有一句总结：按当时的形态判断，不因为后来涨了就判对错。
+            </Text>
+        </Box>
+    </Box>
+
+    <Box style={{ width: 1160, height: 56, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>结果和决策质量分开算，才不会被一次反弹带偏。</Text>
+    </Box>
+</Slide>

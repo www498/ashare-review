@@ -1,0 +1,52 @@
+<Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>每一手，都有一个 0–100 的合理性</Text>
+    <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
+
+    <Box style={{ flexDirection: 'row', gap: 36, marginTop: 24, height: 400 }}>
+        <Box style={{ width: 604, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 18, color: '#64748B' }}>今天 11 手的中位合理性</Text>
+            <Box style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 2 }}>
+                <Text style={{ fontSize: 110, fontWeight: 'bold', color: '#B08D57', letterSpacing: -2 }}>50</Text>
+                <Text style={{ fontSize: 22, color: '#64748B', marginBottom: 16, marginLeft: 10 }}>/ 100</Text>
+            </Box>
+
+            <Box style={{ flexDirection: 'column', marginTop: 18, gap: 18 }}>
+                <Box style={{ flexDirection: 'column' }}>
+                    <Box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ fontSize: 18, color: '#1A1A1A', fontWeight: 'bold' }}>位置层 25 分</Text>
+                        <Text style={{ fontSize: 18, color: '#64748B' }}>当日分位 · 量能 · 持有天数</Text>
+                    </Box>
+                    <Box style={{ width: 604, height: 6, background: '#EDF0F5', borderRadius: 3, marginTop: 6 }}>
+                        <Box style={{ width: 151, height: 6, background: '#64748B', borderRadius: 3 }} />
+                    </Box>
+                </Box>
+                <Box style={{ flexDirection: 'column' }}>
+                    <Box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ fontSize: 18, color: '#1A1A1A', fontWeight: 'bold' }}>时点层 71 分</Text>
+                        <Text style={{ fontSize: 18, color: '#64748B' }}>成交前 30 分钟 · 日内位置</Text>
+                    </Box>
+                    <Box style={{ width: 604, height: 6, background: '#EDF0F5', borderRadius: 3, marginTop: 6 }}>
+                        <Box style={{ width: 429, height: 6, background: '#1E3A5F', borderRadius: 3 }} />
+                    </Box>
+                </Box>
+            </Box>
+
+            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8, marginTop: 20 }}>
+                西部矿业：拖了 22 天才卖，但卖在当日 100% 分位 ——<br />
+                「卖晚了」和「卖在好位置」同时成立。
+            </Text>
+        </Box>
+
+        <Box style={{ width: 520, flexDirection: 'column' }}>
+            <Image src="assets/journal.png" style={{ width: 520, height: 223, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
+            <Text style={{ fontSize: 18, color: '#64748B', lineHeight: 1.7, marginTop: 12 }}>
+                真实看板：11 手逐笔，成本价、成交时间、合理性分数并列。<br />
+                点击可展开「成交前 30 分钟」的盘面依据。
+            </Text>
+        </Box>
+    </Box>
+
+    <Box style={{ width: 1160, height: 56, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>时点层只用成交前的分时，之后的走势不参与评分。</Text>
+    </Box>
+</Slide>

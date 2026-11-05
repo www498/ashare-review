@@ -1,0 +1,50 @@
+<Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>把复盘拆成两半：市场 + 你</Text>
+    <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
+
+    <Box style={{ flexDirection: 'row', gap: 28, marginTop: 30, height: 430 }}>
+        <Box style={{ width: 470, height: 430, background: '#F4F6F9', borderRadius: 8, padding: 28, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>市场侧</Text>
+            <Text style={{ fontSize: 18, color: '#64748B', marginTop: 4, marginBottom: 6 }}>回答「今天发生了什么」</Text>
+            {[
+                ['宽度与温度', '5,577 只涨跌分布，五因子温度'],
+                ['板块归因', '个股 vs 所属行业中位数'],
+                ['个股诊断', '20 日位置、均线、量能'],
+                ['主力资金', '大单拆分，看谁在买'],
+                ['消息面', '按个股挂载，不单独成块'],
+            ].map(function (it, i) {
+                return (
+                    <Box key={i} style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderTop: '1px solid #E3E8F0' }}>
+                        <Box style={{ width: 6, height: 6, borderRadius: 3, background: '#64748B', marginRight: 12 }} />
+                        <Text style={{ fontSize: 18, color: '#1A1A1A', width: 116 }}>{it[0]}</Text>
+                        <Text style={{ fontSize: 18, color: '#64748B' }}>{it[1]}</Text>
+                    </Box>
+                );
+            })}
+        </Box>
+
+        <Box style={{ width: 662, height: 430, background: '#1E3A5F', borderRadius: 8, padding: 28, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>个人侧</Text>
+            <Text style={{ fontSize: 18, color: '#9FB2C8', marginTop: 4, marginBottom: 6 }}>回答「你做得怎么样」</Text>
+            {[
+                ['含费成本', '交割单还原，FIFO 配对每一手'],
+                ['16 型画像', '四维坐标，不是一个孤立标签'],
+                ['逐笔复盘', '每一手给 0–100 的合理性'],
+                ['卖出回看', '本笔、卖后、持有至今分开算'],
+                ['改法', '触发条件 + 分档动作 + 收手条件'],
+            ].map(function (it, i) {
+                return (
+                    <Box key={i} style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderTop: '1px solid rgba(255,255,255,0.14)' }}>
+                        <Box style={{ width: 6, height: 6, borderRadius: 3, background: '#B08D57', marginRight: 12 }} />
+                        <Text style={{ fontSize: 18, color: '#FFFFFF', width: 116 }}>{it[0]}</Text>
+                        <Text style={{ fontSize: 18, color: '#C9D6E6' }}>{it[1]}</Text>
+                    </Box>
+                );
+            })}
+        </Box>
+    </Box>
+
+    <Box style={{ width: 1160, height: 56, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center', marginTop: 18 }}>
+        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>市场数据是背景板，个人决策才是主角。</Text>
+    </Box>
+</Slide>

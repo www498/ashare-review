@@ -1,0 +1,48 @@
+<Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>我们明确不做预测</Text>
+    <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
+
+    <Box style={{ flexDirection: 'row', gap: 36, marginTop: 26, height: 430 }}>
+        <Box style={{ width: 400, height: 430, background: '#1E3A5F', borderRadius: 8, padding: 28, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>这三件事，不做</Text>
+            <Box style={{ flexDirection: 'column', marginTop: 16 }}>
+                <Text style={{ fontSize: 18, color: '#FFFFFF', lineHeight: 2.6 }}>01　预测明天涨不涨</Text>
+                <Text style={{ fontSize: 18, color: '#FFFFFF', lineHeight: 2.6 }}>02　告诉你买什么、卖什么</Text>
+                <Text style={{ fontSize: 18, color: '#FFFFFF', lineHeight: 2.6 }}>03　把波动区间当方向</Text>
+            </Box>
+            <Box style={{ width: 344, height: 1, background: 'rgba(255,255,255,0.16)', marginTop: 20, marginBottom: 16 }} />
+            <Text style={{ fontSize: 18, color: '#9FB2C8', lineHeight: 1.9 }}>
+                做不到的事，不装作能做到。<br />
+                所以所有结论都停在「当时发生了什么」。
+            </Text>
+        </Box>
+
+        <Box style={{ width: 724, flexDirection: 'column', justifyContent: 'space-between' }}>
+            <Box style={{ flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 12 }}>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>不预测方向，只做归因</Text>
+                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8, marginTop: 6 }}>
+                    实测方向准确率 53.8%，永远猜跌的基线是 53.0% —— 没有可提取的信息。
+                    所以不复盘「明天涨不涨」，只复盘「今天为什么涨」。
+                </Text>
+            </Box>
+            <Box style={{ flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 12 }}>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>不给结论，给条件</Text>
+                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8, marginTop: 6 }}>
+                    画像给的是「浮亏到 -8% 先看哪三件事、分三档怎么做、什么条件收手」，
+                    买不买、卖不卖，仍然由你决定。
+                </Text>
+            </Box>
+            <Box style={{ flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 12 }}>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>不承诺区间，只给包络</Text>
+                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8, marginTop: 6 }}>
+                    11 只票的 80% 区间，样本外覆盖 77%–83%（目标 80%），
+                    但模型 R² 中位只有 0.068 —— 宽度可信，方向不可信。
+                </Text>
+            </Box>
+        </Box>
+    </Box>
+
+    <Box style={{ width: 1160, height: 56, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>把不确定的地方说清楚，比装作能预测更可信。</Text>
+    </Box>
+</Slide>

@@ -1,0 +1,42 @@
+<Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>收盘后，你看到的只有市场</Text>
+    <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
+
+    <Box style={{ flexDirection: 'row', gap: 40, marginTop: 32, height: 416 }}>
+        <Box style={{ width: 700, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8 }}>
+                4,662 只上涨、774 只下跌，成交 20,495 亿，124 家涨停。<br />
+                这些数字每天都在你的屏幕上，但它们描述的是市场，不是你。
+            </Text>
+            <Box style={{ flexDirection: 'column', marginTop: 24 }}>
+                <Box style={{ flexDirection: 'row', alignItems: 'center', height: 80, borderTop: '1px solid #E5E9F0' }}>
+                    <Text style={{ fontSize: 18, color: '#B08D57', width: 28 }}>01</Text>
+                    <Text style={{ fontSize: 18, color: '#1A1A1A' }}>我今天的 11 手，买在了什么位置？</Text>
+                </Box>
+                <Box style={{ flexDirection: 'row', alignItems: 'center', height: 80, borderTop: '1px solid #E5E9F0' }}>
+                    <Text style={{ fontSize: 18, color: '#B08D57', width: 28 }}>02</Text>
+                    <Text style={{ fontSize: 18, color: '#1A1A1A' }}>我卖的那 6 笔，是卖飞还是躲过？</Text>
+                </Box>
+                <Box style={{ flexDirection: 'row', alignItems: 'center', height: 80, borderTop: '1px solid #E5E9F0', borderBottom: '1px solid #E5E9F0' }}>
+                    <Text style={{ fontSize: 18, color: '#B08D57', width: 28 }}>03</Text>
+                    <Text style={{ fontSize: 18, color: '#1A1A1A' }}>我这 31 笔交易，反复在犯哪个错？</Text>
+                </Box>
+            </Box>
+        </Box>
+
+        <Box style={{ width: 420, height: 416, background: '#1E3A5F', borderRadius: 8, padding: 32, flexDirection: 'column', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 18, color: '#9FB2C8' }}>今天有</Text>
+            <Text style={{ fontSize: 110, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: -2, marginTop: 4 }}>5,577</Text>
+            <Text style={{ fontSize: 18, color: '#C9D6E6', marginTop: 2 }}>只个股在动</Text>
+            <Text style={{ fontSize: 18, color: '#9FB2C8', lineHeight: 1.7, marginTop: 18 }}>
+                但没有一个字，<br />是关于你的账户的。
+            </Text>
+        </Box>
+    </Box>
+
+    <Box style={{ width: 1160, height: 64, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center', marginTop: 20 }}>
+        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>
+            行情软件回答「市场怎么了」，没有一个字回答「你做得怎么样」。
+        </Text>
+    </Box>
+</Slide>

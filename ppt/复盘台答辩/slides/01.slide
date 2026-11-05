@@ -1,0 +1,21 @@
+<Slide style={{ background: '#1E3A5F', padding: '60px', flexDirection: 'column', justifyContent: 'space-between' }}>
+    <Box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#9FB2C8', letterSpacing: 3 }}>2026 黑客松 · A 股复盘工具</Text>
+        <Text style={{ fontSize: 14, color: '#8FA3BA', letterSpacing: 1 }}>DEMO.HTML</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column', gap: 14 }}>
+        <Text style={{ fontSize: 72, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 6 }}>复盘台</Text>
+        <Text style={{ fontSize: 24, color: '#C9D6E6', letterSpacing: 1 }}>市场复盘 × 个人交易画像</Text>
+        <Box style={{ width: 88, height: 2, background: '#B08D57', marginTop: 6, marginBottom: 6 }} />
+        <Text style={{ fontSize: 18, color: '#9FB2C8', lineHeight: 1.9, width: 780 }}>
+            收盘后你看到的是 5577 只票的涨跌。<br />
+            我们回答的是：这些数字和你的账户、和你的每一笔操作，有什么关系。
+        </Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <Text style={{ fontSize: 14, color: '#8FA3BA' }}>2026-11-05　答辩 7 分钟</Text>
+        <Text style={{ fontSize: 14, color: '#8FA3BA' }}>github.com/www498/ashare-review</Text>
+    </Box>
+</Slide>

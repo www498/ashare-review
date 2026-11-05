@@ -1,0 +1,43 @@
+<Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>画像不是标签，是坐标 + 改法</Text>
+    <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
+
+    <Box style={{ flexDirection: 'row', gap: 40, marginTop: 26, height: 430 }}>
+        <Box style={{ width: 660, flexDirection: 'column' }}>
+            <Image src="assets/profile.png" style={{ width: 660, height: 250, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
+            <Text style={{ fontSize: 18, color: '#64748B', marginTop: 12, lineHeight: 1.7 }}>
+                真实看板：SACD 采药人、四维坐标、16 型全谱。<br />
+                不是问卷测出来的，是 31 笔成交算出来的。
+            </Text>
+            <Box style={{ width: 660, height: 1, background: '#E5E9F0', marginTop: 16, marginBottom: 14 }} />
+            <Text style={{ fontSize: 18, color: '#1A1A1A', lineHeight: 1.8 }}>
+                四维：节奏、归因、盈亏、持仓，各二选一。
+            </Text>
+        </Box>
+
+        <Box style={{ width: 460, flexDirection: 'column', justifyContent: 'space-between' }}>
+            <Box style={{ flexDirection: 'column' }}>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>怎么算的</Text>
+                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8, marginTop: 6 }}>
+                    31 笔成交按 FIFO 配对，四个维度各二选一，共 16 型。
+                </Text>
+            </Box>
+            <Box style={{ flexDirection: 'column' }}>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>算出了什么</Text>
+                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8, marginTop: 6 }}>
+                    慢节奏、走独立、赚了就走、押得集中 —— SACD 采药人。
+                </Text>
+            </Box>
+            <Box style={{ flexDirection: 'column' }}>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>怎么改</Text>
+                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8, marginTop: 6 }}>
+                    亏损单持有不超过 10 天；到期仍亏 5% 以上，先减一半。
+                </Text>
+            </Box>
+        </Box>
+    </Box>
+
+    <Box style={{ width: 1160, height: 56, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>同一型的人，打法相同，该改的地方也相同。</Text>
+    </Box>
+</Slide>

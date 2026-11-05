@@ -94,6 +94,10 @@ def profile_card(ctx):
     # 演示数据是模拟交割单，别让评委以为是真实账户
     block = block.replace("全部来自交割单真实记录",
                           "演示账号的模拟交割单，产品里换成你自己的即可")
+    # 演示页的章节导航要跳到画像卡，先给卡片一个锚点 id
+    block = block.replace(
+        '<div class="card"><h2>交易行为画像',
+        '<div class="card" id="sec-profile"><h2>交易行为画像', 1)
     block = block.replace(
         "<h2>交易行为画像</h2>",
         '<h2>交易行为画像<span style="font-size:11px;color:#8a8f98;'

@@ -1,0 +1,17 @@
+<Slide style={{ background: '#1E3A5F', padding: '60px', flexDirection: 'column', justifyContent: 'space-between' }}>
+    <Box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#9FB2C8', letterSpacing: 3 }}>复盘台 · 2026 黑客松</Text>
+        <Text style={{ fontSize: 14, color: '#8FA3BA', letterSpacing: 1 }}>DEMO.HTML</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column' }}>
+        <Text style={{ fontSize: 60, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 4 }}>每一笔，都算得清</Text>
+        <Box style={{ width: 88, height: 2, background: '#B08D57', marginTop: 20, marginBottom: 20 }} />
+        <Text style={{ fontSize: 18, color: '#C9D6E6', letterSpacing: 1 }}>复盘台 · A 股市场复盘 × 个人交易画像</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <Text style={{ fontSize: 14, color: '#8FA3BA' }}>代码与演示：github.com/www498/ashare-review</Text>
+        <Text style={{ fontSize: 14, color: '#8FA3BA' }}>现场演示：docs/demo.html</Text>
+    </Box>
+</Slide>
