@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>复盘台 · 演示入口</title>
+<meta http-equiv="refresh" content="1; url=demo.html">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(132deg,#0a1a37 0%,#14325c 58%,#1c4271 100%);
+    font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#fff;padding:24px}
+  .card{max-width:560px;width:100%}
+  .tag{font-size:12px;letter-spacing:2px;color:#8fb0dd}
+  h1{font-size:44px;font-weight:700;letter-spacing:3px;margin:10px 0 6px}
+  .sub{font-size:16px;color:#cddcf2}
+  .lead{font-size:14px;line-height:1.9;color:#a9c1e2;margin-top:14px}
+  a.btn{display:inline-block;margin-top:26px;padding:11px 26px;border-radius:8px;
+    background:#fff;color:#14294a;font-size:14px;font-weight:600;text-decoration:none}
+  .hint{margin-top:14px;font-size:12.5px;color:#8fb0dd}
+  .links{margin-top:28px;padding-top:18px;border-top:1px solid rgba(255,255,255,.16);
+    font-size:12.5px;color:#9fb2c8;line-height:2}
+  .links a{color:#cddcf2}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="tag">2026-11-04 收盘 · 演示账号</div>
+    <h1>复盘台</h1>
+    <div class="sub">A 股市场复盘 × 个人交易画像</div>
+    <div class="lead">正在打开演示页。若没有自动跳转，点下面这个按钮。</div>
+    <a class="btn" href="demo.html">进入演示 →</a>
+    <div class="hint">单文件页面，不需要联网、不需要登录。</div>
+    <div class="links">
+      页面包含：交易画像（16 型 / 四维 / 改法）· 持仓 · 今日 11 手逐笔复盘 · 卖出后回看 · 自选股 · 市场区<br>
+      代码与运行说明见仓库根目录 README.md；离线包可用 <code>tools/build_demo_page.py</code> 重新生成
+    </div>
+  </div>
+</body>
+</html>

@@ -22,6 +22,7 @@ GitHub 在本机要走代理，推送经常 502；国内平台直连更快。
 import re
 import subprocess
 import sys
+import urllib.parse
 
 
 def run(args, check=True):
@@ -34,11 +35,34 @@ def run(args, check=True):
 
 
 def main():
-    if len(sys.argv) < 2:
-        sys.exit("用法：python tools/cn_push.py \"https://用户名:令牌@gitee.com/用户名/仓库.git\"")
-    url = sys.argv[1].strip()
+    args = [a.strip() for a in sys.argv[1:] if a.strip() and a.strip() != "--dry-run"]
+    dry = "--dry-run" in sys.argv
+
+    if len(args) >= 3:
+        # 三段式：仓库地址 + 用户名 + 令牌。凭据由脚本拼，避免手工拼错。
+        repo, user, token = args[0], args[1], args[2]
+        if repo.startswith("git@"):
+            sys.exit("请用 HTTPS 地址，形如 https://gitee.com/用户名/ashare-review.git")
+        if not repo.startswith("http"):
+            repo = "https://" + repo
+        p = urllib.parse.urlparse(repo)
+        netloc = (f"{urllib.parse.quote(user, safe='')}:"
+                  f"{urllib.parse.quote(token, safe='')}@{p.netloc}")
+        url = p._replace(netloc=netloc).geturl()
+    elif len(args) == 1:
+        url = args[0]
+    else:
+        sys.exit(
+            '用法一：python tools/cn_push.py "https://用户名:令牌@gitee.com/用户名/仓库.git"\n'
+            '用法二：python tools/cn_push.py "https://gitee.com/用户名/仓库.git" 用户名 令牌'
+        )
+
     if not re.match(r"^https://[^/]+@", url):
         sys.exit("URL 里没带用户名和令牌。格式：https://用户名:令牌@域名/路径.git")
+
+    if dry:
+        print("地址检查通过：", re.sub(r"//[^@]+@", "//***:***@", url))
+        return
 
     # 先确认这是不是一个 git 仓库
     r = run(["git", "rev-parse", "--is-inside-work-tree"], check=False)

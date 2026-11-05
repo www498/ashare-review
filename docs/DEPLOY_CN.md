@@ -55,8 +55,22 @@ GitCode 用法相同，把域名换成 `gitcode.com`。
 | Gitee Pages | 中 | 需实名认证；仓库 → 服务 → Gitee Pages → 部署 `docs` 目录 |
 | 仓库内的 HTML | 低 | Gitee 不渲染 HTML，评委需下载后本地打开 |
 
-Gitee Pages 开启步骤：仓库页 → 服务 → Gitee Pages → 分支选默认分支、部署目录填 `docs` →
-启动服务。首次需要实名认证，认证审核可能要几小时，**不要等到答辩当天才开**。
+Gitee Pages 开启步骤：
+
+1. 打开你的仓库页，顶部菜单找 **服务 → Gitee Pages**；
+2. 部署分支选默认分支（`master` 或 `main`）；
+3. **部署目录填 `docs`**；
+4. 勾选「强制使用 HTTPS」，点「启动」；
+5. 得到地址：`https://<你的用户名>.gitee.io/ashare-review`。
+
+`docs/index.html` 已经做成入口页，会自动跳到 `docs/demo.html`，所以评委打开根地址就能看，
+不用记长路径。16 型形象的图片在 `docs/assets/persona/`，随 `docs` 目录一起部署。
+
+**首次开启需要实名认证**（个人设置 → 实名认证，身份证 + 人脸）。
+审核可能要几分钟到几小时，**不要等到答辩当天才开**。
+
+如果仓库页找不到「服务 / Gitee Pages」入口，说明当前账号或仓库类型不支持，
+不要在这上面耗时间——直接用本地的 `dist/demo-offline.zip`，评委要看就把包发过去。
 
 ---
 

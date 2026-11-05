@@ -1,28 +1,30 @@
 <Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>现场怎么演示：一个 HTML，三步</Text>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>一页看全：市场、账户、每一笔</Text>
     <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
 
-    <Box style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 18 }}>
-        <Image src="assets/hero.png" style={{ width: 720, height: 371, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
+    <Box style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 14 }}>
+        <Image src="assets/hero.png" style={{ width: 760, height: 392, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
     </Box>
 
-    <Box style={{ flexDirection: 'row', gap: 40, marginTop: 16 }}>
+    <Box style={{ flexDirection: 'row', gap: 40, marginTop: 12 }}>
         {[
-            ['01', '打开 docs/demo.html', '首屏 4 个数字，两个入口'],
-            ['02', '点「看交易画像」', '16 型、四维坐标、改法'],
-            ['03', '点「看逐笔复盘」', '11 手的 0–100 合理性'],
+            ['01', '首屏', '5,577 只的市场，和你的 31 笔'],
+            ['02', '画像', '16 型、四维坐标、怎么改'],
+            ['03', '逐笔', '11 手的 0–100 合理性'],
         ].map(function (it, i) {
             return (
-                <Box key={i} style={{ width: 360, flexDirection: 'column' }}>
-                    <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#B08D57' }}>{it[0]}</Text>
-                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1A1A1A', marginTop: 2 }}>{it[1]}</Text>
-                    <Text style={{ fontSize: 18, color: '#64748B', marginTop: 2 }}>{it[2]}</Text>
+                <Box key={i} style={{ width: 360, flexDirection: 'row', alignItems: 'baseline' }}>
+                    <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#B08D57', width: 38 }}>{it[0]}</Text>
+                    <Box style={{ flexDirection: 'column' }}>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1A1A1A' }}>{it[1]}</Text>
+                        <Text style={{ fontSize: 18, color: '#64748B', marginTop: 2 }}>{it[2]}</Text>
+                    </Box>
                 </Box>
             );
         })}
     </Box>
 
-    <Text style={{ fontSize: 18, color: '#1A1A1A', marginTop: 18 }}>
-        单文件、无后端，双击就能开；<span style={{ fontWeight: 'bold' }}>断网也能演示</span>。
+    <Text style={{ fontSize: 18, color: '#1A1A1A', marginTop: 12 }}>
+        答辩不切窗口，关键界面都在这份 PPT 里；<span style={{ color: '#64748B' }}>可点的完整版在仓库 docs/demo.html。</span>
     </Text>
 </Slide>
