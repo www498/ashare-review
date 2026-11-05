@@ -65,3 +65,7 @@ docs/demo_body.mp4
 
 # 打包产物（bundle / 源码 zip / 离线演示包），用命令行按需生成
 dist/
+
+# PPT 生成工具的缓存
+.cache/
+.slidep/
