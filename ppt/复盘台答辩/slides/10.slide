@@ -1,55 +1,17 @@
-<Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>5577 只、42 秒、一个文件</Text>
-    <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
-
-    <Box style={{ flexDirection: 'row', gap: 40, marginTop: 24, height: 190 }}>
-        <Box style={{ width: 460, flexDirection: 'column', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 96, fontWeight: 'bold', color: '#B08D57', letterSpacing: -2 }}>5,577</Text>
-            <Text style={{ fontSize: 18, color: '#3F4A55', marginTop: 2 }}>只个股，沪深京全量覆盖</Text>
-        </Box>
-        <Box style={{ width: 660, flexDirection: 'row', gap: 30, alignItems: 'center' }}>
-            {[
-                ['42s', '生成一份完整复盘'],
-                ['1', '个 HTML 文件，无后端'],
-                ['18', '项离线自检全部通过'],
-            ].map(function (it, i) {
-                return (
-                    <Box key={i} style={{ width: 200, flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 12 }}>
-                        <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>{it[0]}</Text>
-                        <Text style={{ fontSize: 18, color: '#64748B', marginTop: 4, lineHeight: 1.6 }}>{it[1]}</Text>
-                    </Box>
-                );
-            })}
-        </Box>
+<Slide style={{ background: '#1E3A5F', padding: '60px', flexDirection: 'column', justifyContent: 'space-between' }}>
+    <Box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#9FB2C8', letterSpacing: 3 }}>复盘台 · 2026 黑客松</Text>
+        <Text style={{ fontSize: 14, color: '#8FA3BA', letterSpacing: 1 }}>DEMO.HTML</Text>
     </Box>
 
-    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 28, height: 200 }}>
-        <Box style={{ width: 330, height: 170, background: '#F4F6F9', borderRadius: 8, padding: 20, flexDirection: 'column' }}>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>四个数据源</Text>
-            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.9, marginTop: 8 }}>
-                腾讯行情 · 新浪日 K<br />
-                东财资金流 · baostock 行业
-            </Text>
-        </Box>
-        <Text style={{ fontSize: 22, color: '#64748B' }}>→</Text>
-        <Box style={{ width: 330, height: 170, background: '#F4F6F9', borderRadius: 8, padding: 20, flexDirection: 'column' }}>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>本地计算</Text>
-            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.9, marginTop: 8 }}>
-                宽度 / 温度 / 归因<br />
-                FIFO 成本 / 画像 / 时点评分
-            </Text>
-        </Box>
-        <Text style={{ fontSize: 22, color: '#64748B' }}>→</Text>
-        <Box style={{ width: 330, height: 170, background: '#1E3A5F', borderRadius: 8, padding: 20, flexDirection: 'column' }}>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>单文件输出</Text>
-            <Text style={{ fontSize: 18, color: '#C9D6E6', lineHeight: 1.9, marginTop: 8 }}>
-                一个 HTML，双击即开<br />
-                断网也能看，不依赖服务端
-            </Text>
-        </Box>
+    <Box style={{ flexDirection: 'column' }}>
+        <Text style={{ fontSize: 60, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 4 }}>每一笔，都算得清</Text>
+        <Box style={{ width: 88, height: 2, background: '#B08D57', marginTop: 20, marginBottom: 20 }} />
+        <Text style={{ fontSize: 18, color: '#C9D6E6', letterSpacing: 1 }}>复盘台 · A 股市场复盘 × 个人交易画像</Text>
     </Box>
 
-    <Box style={{ width: 1160, height: 56, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>数字由程序算，AI 只负责解释；解释里的每个数字都要能溯源校验。</Text>
+    <Box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <Text style={{ fontSize: 14, color: '#8FA3BA' }}>代码与演示：github.com/www498/ashare-review</Text>
+        <Text style={{ fontSize: 14, color: '#8FA3BA' }}>现场演示：docs/demo.html</Text>
     </Box>
 </Slide>

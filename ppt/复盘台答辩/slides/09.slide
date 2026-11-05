@@ -1,28 +1,30 @@
 <Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>自选股：每只票的当日解释</Text>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>卖飞还是躲过，三个基准分开算</Text>
     <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
 
-    <Box style={{ flexDirection: 'row', gap: 24, marginTop: 18 }}>
-        <Image src="assets/watch.png" style={{ width: 860, height: 417, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
-        <Box style={{ width: 276, flexDirection: 'column' }}>
-            <Box style={{ flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 10 }}>
-                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>不是行情列表</Text>
-                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.75, marginTop: 4 }}>
-                    每只票都能展开：为什么涨、分时、诊断。
-                </Text>
-            </Box>
-            <Box style={{ flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 10, marginTop: 14 }}>
-                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>赤峰黄金 +10.0%</Text>
-                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.75, marginTop: 4 }}>
-                    涨停、量比 1.16，三段归因拆到板块与个股。
-                </Text>
-            </Box>
-            <Box style={{ flexDirection: 'column', borderTop: '2px solid #B08D57', paddingTop: 10, marginTop: 14 }}>
-                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>未来 5 日区间</Text>
-                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.75, marginTop: 4 }}>
-                    30.54 ~ 39.98，覆盖 80.5%、R² 0.06 —— 只当包络。
-                </Text>
-            </Box>
+    <Box style={{ flexDirection: 'row', gap: 24, marginTop: 24, height: 430 }}>
+        <Box style={{ width: 300, height: 430, background: '#1E3A5F', borderRadius: 8, padding: 24, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>为什么要看三个数</Text>
+            <Text style={{ fontSize: 18, color: '#C9D6E6', lineHeight: 1.95, marginTop: 14 }}>
+                只看「本笔」，会把卖飞当成及时止损；<br /><br />
+                只看「卖后」，会把没回本当成功落袋。
+            </Text>
+            <Text style={{ fontSize: 18, color: '#FFFFFF', lineHeight: 1.95, marginTop: 18 }}>
+                三个一起看，才知道这一卖到底值不值 ——
+                也才知道下次该早卖还是晚卖。
+            </Text>
         </Box>
+
+        <Box style={{ width: 836, flexDirection: 'column' }}>
+            <Image src="assets/sell4.png" style={{ width: 836, height: 320, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
+            <Text style={{ fontSize: 18, color: '#1A1A1A', lineHeight: 1.75, marginTop: 12 }}>
+                同一笔卖出，三个数经常互相矛盾：本笔 −10.0%、卖后 +6.1%、持有至今 −4.5%。<br />
+                矛盾本身就是信息 —— 说明卖在了「方向对、点位早」的位置上。
+            </Text>
+        </Box>
+    </Box>
+
+    <Box style={{ width: 1160, height: 46, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>结果和决策质量分开算，才不会被一次反弹带偏。</Text>
     </Box>
 </Slide>

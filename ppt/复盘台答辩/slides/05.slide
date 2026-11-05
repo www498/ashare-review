@@ -2,30 +2,31 @@
     <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>画像不是标签，是一条能改的事</Text>
     <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
 
-    <Image src="assets/summary.png" style={{ width: 1160, height: 238, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0', marginTop: 20 }} />
-
-    <Box style={{ flexDirection: 'row', gap: 40, marginTop: 22 }}>
-        <Box style={{ width: 360, flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 12 }}>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>怎么算的</Text>
-            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8, marginTop: 6 }}>
-                31 笔成交按 FIFO 配对，四个维度各二选一。
-            </Text>
-        </Box>
-        <Box style={{ width: 360, flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 12 }}>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>算出了什么</Text>
-            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8, marginTop: 6 }}>
-                波段、准但保守：赢的次数够，赢的幅度不够。
-            </Text>
-        </Box>
-        <Box style={{ width: 360, flexDirection: 'column', borderTop: '2px solid #B08D57', paddingTop: 12 }}>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>怎么改</Text>
-            <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.8, marginTop: 6 }}>
-                第 10 天硬期限；到期仍亏 5% 以上，先减一半。
-            </Text>
+    <Box style={{ flexDirection: 'row', gap: 28, marginTop: 20, height: 450 }}>
+        <Image src="assets/profile2.png" style={{ width: 820, height: 450, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
+        <Box style={{ width: 312, flexDirection: 'column' }}>
+            <Box style={{ flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 10 }}>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>怎么算的</Text>
+                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.75, marginTop: 4 }}>
+                    31 笔成交 FIFO 配对，四维各二选一。
+                </Text>
+            </Box>
+            <Box style={{ flexDirection: 'column', borderTop: '2px solid #1E3A5F', paddingTop: 10, marginTop: 14 }}>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>算出了什么</Text>
+                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.75, marginTop: 4 }}>
+                    波段、准但保守：赢的次数够，赢的幅度不够。
+                </Text>
+            </Box>
+            <Box style={{ flexDirection: 'column', borderTop: '2px solid #B08D57', paddingTop: 10, marginTop: 14 }}>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E3A5F' }}>怎么改</Text>
+                <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.75, marginTop: 4 }}>
+                    第 10 天硬期限；到期仍亏 5% 以上，先减一半。
+                </Text>
+            </Box>
         </Box>
     </Box>
 
-    <Box style={{ width: 1160, height: 52, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center', marginTop: 20 }}>
+    <Box style={{ width: 1160, height: 50, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center', marginTop: 16 }}>
         <Text style={{ fontSize: 18, color: '#1A1A1A' }}>同一型的人，打法相同，该改的地方也相同。</Text>
     </Box>
 </Slide>

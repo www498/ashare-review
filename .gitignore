@@ -60,3 +60,6 @@ dist/
 # PPT 生成工具的缓存
 .cache/
 .slidep/
+
+# PPT 重建时的临时文件
+ppt/复盘台答辩/_new.pptx

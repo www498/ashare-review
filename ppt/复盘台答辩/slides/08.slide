@@ -1,35 +1,19 @@
 <Slide style={{ background: '#FFFFFF', padding: '60px', flexDirection: 'column' }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>三个基准，别混着看</Text>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#1A1A1A' }}>每一手，都有一个 0–100 的合理性</Text>
     <Box style={{ width: 1160, height: 1, background: '#D9DEE6', marginTop: 12 }} />
 
-    <Box style={{ flexDirection: 'row', gap: 28, marginTop: 24, height: 458 }}>
-        <Box style={{ width: 340, height: 458, background: '#1E3A5F', borderRadius: 8, padding: 24, flexDirection: 'column' }}>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>三个百分比</Text>
-            <Text style={{ fontSize: 18, color: '#C9D6E6', lineHeight: 1.85, marginTop: 12 }}>
-                本笔 = 卖价 ÷ 成本 − 1<br />
-                卖后 = N 日后 ÷ 卖价 − 1<br />
-                至今 = 最新 ÷ 成本 − 1
-            </Text>
-            <Box style={{ width: 292, height: 1, background: 'rgba(255,255,255,0.16)', marginTop: 14, marginBottom: 12 }} />
-            <Text style={{ fontSize: 18, color: '#9FB2C8', lineHeight: 1.8 }}>
-                中金黄金 10-30：<br />
-                成本 21.34 → 卖 19.21 → 3 日后 20.38
-            </Text>
-            <Text style={{ fontSize: 18, color: '#FFFFFF', lineHeight: 1.85, marginTop: 8 }}>
-                本笔 −10.0%　卖后 +6.1%（对卖价）<br />
-                至今 −4.5%（对成本）
-            </Text>
-        </Box>
+    <Image src="assets/journal3.png" style={{ width: 1160, height: 390, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0', marginTop: 14 }} />
 
-        <Box style={{ width: 792, flexDirection: 'column' }}>
-            <Image src="assets/sellreview.png" style={{ width: 792, height: 348, objectFit: 'cover', borderRadius: 6, border: '1px solid #E5E9F0' }} />
-            <Text style={{ fontSize: 18, color: '#1A1A1A', lineHeight: 1.7, marginTop: 10 }}>
-                卖后 +6.1% 只说「卖完又涨了 6.1%」，不是回本；<span style={{ fontWeight: 'bold' }}>相对成本仍 −4.5%</span>。
-            </Text>
-        </Box>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+        <Text style={{ fontSize: 64, fontWeight: 'bold', color: '#B08D57', letterSpacing: -2, lineHeight: 1 }}>50</Text>
+        <Text style={{ fontSize: 20, color: '#64748B', marginLeft: 6 }}>/100</Text>
+        <Text style={{ fontSize: 18, color: '#3F4A55', lineHeight: 1.75, marginLeft: 26 }}>
+            同样一笔卖出，位置好不代表时点对：紫金矿业卖在 96% 分位（位置分高），<br />
+            但成交前 30 分钟还在涨 1.7%（时点分低）。分开打分，才知道该改选股还是改时机。
+        </Text>
     </Box>
 
-    <Box style={{ width: 1160, height: 52, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>基准不同，结论就不同 —— 三个数一起看，才是这笔卖出的全貌。</Text>
+    <Box style={{ width: 1160, height: 46, background: '#F4F6F9', borderRadius: 8, paddingLeft: 22, flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+        <Text style={{ fontSize: 18, color: '#1A1A1A' }}>时点层只用成交前的分时，之后的走势不参与评分。</Text>
     </Box>
 </Slide>
