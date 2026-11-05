@@ -89,8 +89,8 @@ def render():
     h.append('<div class="legend">'
              '<span><b>节奏</b>　F 出手快（≤7 天）／S 拿得久</span>'
              '<span><b>归因</b>　B 跟板块／A 走独立</span>'
-             '<span><b>盈亏</b>　C 截断利润／R 让利润跑</span>'
-             '<span><b>持仓</b>　K 集中／D 分散</span></div>')
+             '<span><b>盈亏</b>　C 赚了就走／R 赚了能拿</span>'
+             '<span><b>持仓</b>　K 押得集中／D 分得开</span></div>')
 
     for key, title, desc, codes in GROUPS:
         c1, c2 = persona_art.TONE.get(key, ("#c3ccd8", "#7d8797"))

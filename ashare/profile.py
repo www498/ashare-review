@@ -216,6 +216,8 @@ def persona(c, per_stock, tags=None):
     h = c.get("hold_avg")
     hw, hl = c.get("hold_win"), c.get("hold_loss")
     aw, al = c.get("avg_win"), c.get("avg_loss")
+    # 金额与百分比是两套口径，别混：avg_loss 是元，avg_loss_pct 才是百分比
+    awp, alp = c.get("avg_win_pct"), c.get("avg_loss_pct")
 
     # ---- 节奏：按平均持有天数 ----
     if h is None:
@@ -264,22 +266,26 @@ def persona(c, per_stock, tags=None):
                           f'交易 {worst["n"]} 次，累计亏损'))
 
     # ---- 一条最该改的事：按「对盈亏影响最大」排序，只给一条 ----
+    # 不能停在「要止损」这种正确的废话上：必须给出到期日、减仓比例和复核条件。
     fix = None
     if hw and hl and hw > 0 and hl > hw * 1.5:
-        fix = (f"亏损单平均拿 {hl:.0f} 天，盈利单只拿 {hw:.0f} 天。"
-               f"先给每笔交易定一条止损线，别让亏损单的持有时间超过盈利单。")
+        fix = (f"亏损单平均拿 {hl:.0f} 天、亏 {abs(alp or 0):.1f}%，盈利单只拿 {hw:.0f} 天、"
+               f"赚 {awp or 0:.1f}%。把「第 {hw:.0f} 天」设成硬期限：到期仍在成本下方 5% 以上，"
+               f"先减一半；跌破买入价下方 8% 且板块同期走弱，再减到三分之一。")
     elif pf is not None and pf < 1:
-        fix = (f"盈亏比 {pf:.2f}，每亏 1 元只赚回 {pf:.2f} 元。"
-               f"比起找更好的票，更该先砍掉那个反复亏损的标的。")
+        fix = (f"盈亏比 {pf:.2f}，每亏 1 元只赚回 {pf:.2f} 元。比起找更好的票，"
+               f"更该先砍掉那个反复亏损的标的：它已经吃掉 "
+               f"{(per_stock[0]['pnl'] if per_stock else 0):+,.0f} 元级的利润。")
     elif c.get("fee_vs_pnl") is not None and c["fee_vs_pnl"] >= 0.4:
         fix = (f"手续费已相当于已实现盈亏的 {c['fee_vs_pnl']:.0%}。"
-               f"降低交易频率，比你多抓一个涨停更能改善净值。")
+               f"把每月交易次数上限压到现在的三分之二，比你多抓一个涨停更能改善净值。")
     elif wr is not None and wr >= 0.55 and aw and al and abs(al) > aw:
-        fix = (f"胜率 {wr:.0%} 说明选股没问题，问题在止盈："
-               f"平均赚 {aw:,.0f} 元就跑，平均亏 {abs(al):,.0f} 元。把止盈放宽一档。")
+        fix = (f"胜率 {wr:.0%} 说明选股没问题，问题在止盈：平均赚 {awp or 0:.1f}% 就跑，"
+               f"平均亏 {abs(alp or 0):.1f}%。把止盈线从 +{awp or 0:.1f}% 放到 "
+               f"+{(awp or 0) * 1.6:.1f}%，到价先卖三分之一，剩下的跌破 5 日线再走。")
     elif c.get("hold_avg") is not None:
-        fix = (f"当前节奏是{pace}（平均 {c['hold_avg']:.1f} 天）。"
-               f"在这个周期里，最大的风险不是选错票，而是频繁换手带来的成本。")
+        fix = (f"当前节奏是{pace}（平均 {c['hold_avg']:.1f} 天）。在这个周期里，"
+               f"最大的风险不是选错票，而是频繁换手带来的成本。")
 
     return {
         "title": f"{pace} · {style}",
@@ -305,89 +311,179 @@ def _max_loss_streak(trades):
 def playbook(c, trades, per_stock, positions=None, quotes=None):
     """应对手册：把画像指标翻译成「什么情况下做什么」。
 
-    与 persona 的分工：persona 回答「你是什么样的人」，playbook 回答「下次遇到怎么办」。
-    每条都必须绑定他自己的数字（平均亏损幅度、平均持有天数、最大连亏笔数），
-    否则就是「要止损、要拿住」这种谁都会说的空话。
+    每条必须能回答四个问题：什么条件触发、先看哪几件事、分几档怎么做、
+    什么情况下收手。只写「亏了要割、涨了要卖」等于没写——那种话解决不了
+    任何具体问题，评委会追问「-5.7% 的时候到底割多少」。
+
+    与 persona 的分工：persona 回答「你是什么样的人」，playbook 回答
+    「下次遇到怎么办」。所有阈值都从他的成交里推，不套通用参数。
     """
     out = []
     al = c.get("avg_loss_pct")
     aw = c.get("avg_win_pct")
     hw, hl = c.get("hold_win"), c.get("hold_loss")
+    wr, pf = c.get("win_rate"), c.get("profit_factor")
+    n = c.get("n_closed") or 0
+    best = c.get("best_pct")
 
-    # 1) 止损线：用他自己的平均亏损幅度定，不套通用的 -5%
+    def f1(v, default="—"):
+        return f"{v:.1f}" if v is not None else default
+
+    def fp(v, default="—"):
+        return f"{v:.0%}" if v is not None else default
+
+    def f2(v, default="—"):
+        # 盈亏比 0.99 保留两位，写成 1.0 会抹掉「不到 1」这个关键事实
+        return f"{v:.2f}" if v is not None else default
+
+    # 1) 亏损处置：按他自己的亏损幅度定触发线，按板块强弱分三档
     if al is not None and al < -1:
-        line = round(al * 0.6, 1)
-        tail = ""
-        if hw and hl:
-            tail = (f"你过去的亏损单平均拿到 {hl:.0f} 天、亏 {abs(al):.1f}%，"
-                    f"而盈利单只拿 {hw:.0f} 天 —— 拖延是你亏钱的主要方式。")
+        line = round(al * 0.85, 1)
+        hold_cap = f"{hw:.0f}" if hw else "10"
         out.append({
             "when": f"单笔浮亏到 {line:.1f}%",
-            "what": f"收盘前减掉一半或全部，不要等回本。{tail}",
+            "why": (f"{n} 笔已平仓里，亏损单平均拿 {f1(hl)} 天、亏 {abs(al):.1f}%，"
+                    f"盈利单只拿 {f1(hw)} 天、赚 {f1(aw)}% —— "
+                    f"时间全花在亏损单上，这就是盈亏比 {f2(pf)} 的来源。"),
+            "checks": [
+                "个股：跌破 20 日线没有？跌破上一个低点没有？",
+                "板块：所属板块近 3 日跑赢还是跑输大盘？",
+                "大盘：跌家数是否超过 3000、成交额是否在缩？",
+            ],
+            "steps": [
+                ("板块强 + 个股缩量回踩 20 日线",
+                 "先减三分之一，剩余止损放在前低下方 2%；不补仓、不等回本。"),
+                ("板块弱 + 个股放量跌破 20 日线",
+                 "当天减一半；剩余次日站不回 20 日线就清掉。"),
+                ("大盘系统性下跌（跌家数 > 3000）",
+                 "先减到三分之一，等指数连续 2 天不创新低再评估。"),
+            ],
+            "stop": (f"任何路径下，亏损单持有不超过 {hold_cap} 天"
+                     f"（你盈利单的平均持有天数）。到期仍在成本下方 5% 以上，"
+                     f"剩余无条件清掉。"),
             "tone": "warn",
         })
 
-    # 2) 止盈：他平均赚多少就跑，但最大赚过多少
+    # 2) 止盈：他不是不会拿，是没给过机会
     if aw is not None and aw > 1:
+        line = round(aw * 1.1, 1)
         out.append({
-            "when": f"盈利到 +{aw * 1.6:.1f}%",
-            "what": (f"先卖一半，剩下的用回落止盈拿着。你平均只赚 {aw:.1f}% 就跑，"
-                     f"但最大赚过 {c.get('best_pct') or 0:.1f}% —— "
-                     f"拿得住的能力你有，只是没给它机会。"),
+            "when": f"浮盈到 +{line:.1f}%",
+            "why": (f"你平均赚 {aw:.1f}% 就跑，最大赚过 {f1(best)}%；"
+                    f"胜率 {fp(wr)} 说明选股是准的，盈亏比 {f2(pf)} 说明利润被提前落袋。"),
+            "checks": [
+                "板块资金：近 3 日是否连续净流入？",
+                "个股：有没有跌破 5 日线？",
+                "量能：当日是否超过 2 倍且价格不再新高（放量滞涨）？",
+            ],
+            "steps": [
+                (f"+{line:.1f}% 且板块仍强",
+                 "先卖三分之一落袋，剩余用 5 日线作止盈线，跌破再走。"),
+                (f"+{line:.1f}% 但板块转弱或放量滞涨",
+                 "卖一半，剩余止盈线收到 10 日线，不恋战。"),
+                (f"浮盈超过 +{line * 2:.1f}%",
+                 f"至少留四分之一跟趋势，目标把平均盈利从 {aw:.1f}% 拉到 "
+                 f"{aw * 1.5:.1f}%。"),
+            ],
+            "stop": "不要一次清完：拿得住的能力你有，只是没给过机会。",
             "tone": "good",
         })
 
-    # 3) 连亏降仓
+    # 3) 连亏降仓：连亏时判断已经和行情脱节，先把仓位降下来
     streak = _max_loss_streak(trades)
     if streak >= 2:
         out.append({
-            "when": f"连续 {streak} 笔亏损之后",
-            "what": ("把仓位降到平时的一半，重新做对 2 笔再加回来。"
-                     "连亏时判断已经和行情脱节，这时候放大仓位只会放大错误。"),
+            "when": "连续 3 笔亏损之后",
+            "why": (f"你最长连亏过 {streak} 笔。连亏后人对行情的判断会变钝，"
+                    f"这时候放大仓位只会放大错误；先把亏损的速度降下来，再谈赚回来。"),
+            "checks": ["这 3 笔是不是同一个板块？", "是不是同一种形态（追高/抄底）？",
+                       "仓位是不是比平时更大？"],
+            "steps": [
+                ("第 3 笔亏损出现",
+                 "仓位降到平时的二分之一，只做板块共振的票（板块涨且资金净流入）。"),
+                ("之后做对 2 笔",
+                 "恢复到四分之三仓位；再对 1 笔才回到满仓。"),
+                ("连亏 5 笔",
+                 "停手 3 个交易日，只看不做，把这 5 笔按上面的亏损处置逐笔复盘。"),
+            ],
+            "stop": "连亏期间不要用「摊平成本」的方式加仓同一只票。",
             "tone": "warn",
         })
 
-    # 4) 费用摩擦
-    fr = c.get("fee_vs_pnl")
-    if fr is not None and fr >= 0.4:
-        out.append({
-            "when": "同一个月内第 3 次买同一只票",
-            "what": (f"停手。你的手续费已相当于已实现盈亏的 {fr:.0%}，"
-                     f"再高的胜率也补不回摩擦成本。"),
-            "tone": "warn",
-        })
+    # 4) 涨停追入：当天已无法止损，等于把止损权交给第二天
+    out.append({
+        "when": "当日涨停、或涨幅超过 9% 时想买入",
+        "why": ("涨停价买入当天已经没有止损位，次日溢价也没有稳定规律；"
+                "这是最贵的一种「确定性」。"),
+        "checks": ["封板有没有被打开过？", "板块是不是当天最强的主线？",
+                   "次日竞价高开多少？"],
+        "steps": [
+            ("封板未开", "不追。次日竞价高开超过 3% 不接；平开或低开再看承接。"),
+            ("涨停打开后回踩 5 日线",
+             "只在回踩不破 5 日线、板块仍强时买，仓位不超过平时一半。"),
+            ("已经追进", "次日开盘 30 分钟内没涨过 +1% 就走，不抱幻想。"),
+        ],
+        "stop": "不要在涨停价挂单等成交——成交那一刻，你已经没有止损位。",
+        "tone": "info",
+    })
 
-    # 5) 集中度
-    if positions and quotes:
-        mv = {}
-        for code, p in positions.items():
-            px = (quotes.get(code) or {}).get("price")
-            if px and p.get("shares"):
-                mv[code] = px * p["shares"]
-        tot = sum(mv.values())
-        if tot > 0:
-            top_code, top_val = max(mv.items(), key=lambda kv: kv[1])
-            share = top_val / tot
-            if share >= 0.35:
-                nm = (quotes.get(top_code) or {}).get("name") or top_code
-                out.append({
-                    "when": f"{nm} 占比已到 {share:.0%}",
-                    "what": ("加仓前先问自己：这是主动判断，还是因为它涨得好所以没卖？"
-                             "单票超过三分之一时，一次意外就能抹掉几个月的胜率优势。"),
-                    "tone": "warn",
-                })
-
-    # 6) 区分板块与个股：这条接的是多日归因
+    # 5) 最拖后腿的标的：把钱亏在哪儿，就在哪儿设规则
     if per_stock:
         worst = min(per_stock, key=lambda x: x["pnl"])
         if worst["pnl"] < 0 and worst["n"] >= 2:
+            pos = (positions or {}).get(worst.get("code")) or {}
+            q = (quotes or {}).get(worst.get("code")) or {}
+            px, cost = q.get("price"), pos.get("cost")
+            extra = ""
+            if px and cost and pos.get("shares"):
+                up = (px / cost - 1) * 100
+                extra = (f"当前还持有 {pos['shares']:,.0f} 股，成本 {cost:.2f}、"
+                         f"现价 {px:.2f}（{up:+.1f}%）。")
             out.append({
-                "when": f"{worst['name']} 再次下跌",
-                "what": (f"先看所属板块当天是不是也在跌。板块在涨它独跌（归因里「个股超额」为负），"
-                         f"就去查公告和资金，不要补仓摊平 —— 你已经在这只票上交易 "
-                         f"{worst['n']} 次、累计 {worst['pnl']:+.0f} 元。"),
-                "tone": "info",
+                "when": f"{worst['name']} 再次下跌，或反弹到成本上方",
+                "why": (f"这只票交易 {worst['n']} 次、累计 {worst['pnl']:+,.0f} 元，"
+                        f"是最大的亏损来源。{extra}"),
+                "checks": ["这次买入是因为它便宜，还是因为它涨了？",
+                           "板块资金是流入还是流出？", "仓位占比有没有超过 25%？"],
+                "steps": [
+                    ("反弹到成本上方 10%", "先减一半，把这只票的仓位降回 10% 以内。"),
+                    ("跌破当前成本", "减到三分之一，不在亏损记忆里继续补仓摊平。"),
+                    ("所属板块连续 3 日资金净流出", "清掉剩余，换到资金流入的板块。"),
+                ],
+                "stop": ("不要因为它现在浮盈，就忘了它已经让你亏过 "
+                         f"{abs(worst['pnl']):,.0f} 元。"),
+                "tone": "warn",
             })
+
+    # 6) 集中度：前三合计超过一半，等于把账户押在一个风险敞口上
+    if positions and quotes:
+        mv = {}
+        for code, p in positions.items():
+            q = (quotes.get(code) or {}).get("price")
+            if q and p.get("shares"):
+                mv[code] = q * p["shares"]
+        tot = sum(mv.values())
+        if tot > 0:
+            ranked = sorted(mv.items(), key=lambda kv: -kv[1])
+            top3 = sum(v for _, v in ranked[:3]) / tot
+            if top3 >= 0.45:
+                names = "、".join(
+                    (quotes.get(c) or {}).get("name") or c for c, _ in ranked[:3])
+                out.append({
+                    "when": f"前三大持仓合计 {top3:.0%}",
+                    "why": (f"{names} 已经占了账户 {top3:.0%}；如果其中两只同属一个板块，"
+                            f"实际是同一个风险敞口，一起跌的时候没有对冲。"),
+                    "checks": ["前三大里有没有同行业的？", "单票占比是否超过 25%？",
+                               "新资金是不是又加到了最强的那个方向？"],
+                    "steps": [
+                        ("同行业两只合计 > 30%",
+                         "新资金不再加这个方向，换到相关性低的板块。"),
+                        ("单票 > 25%", "加到 25% 就停，超出部分等回调再考虑。"),
+                        ("要减仓时", "先减涨得最多、逻辑最弱的那只，不是先减亏的。"),
+                    ],
+                    "stop": "分散是换行业，不是换代码。",
+                    "tone": "info",
+                })
     return out
 
 
@@ -502,7 +598,7 @@ def mbti(c, per_stock, movers=None, positions=None, quotes=None):
         ratio = hl / hw
         dims.append({
             "dim": "盈亏", "letter": "C" if ratio >= 1.3 else "R",
-            "left": "C 截断利润", "right": "R 让利润跑",
+            "left": "C 赚了就走", "right": "R 赚了能拿",
             "pct": _clamp(0.5 - (ratio - 1.3) / 2),
             "note": f"亏 {hl:.0f} 天 / 盈 {hw:.0f} 天",
         })
@@ -523,7 +619,7 @@ def mbti(c, per_stock, movers=None, positions=None, quotes=None):
     if share is not None:
         dims.append({
             "dim": "持仓", "letter": "K" if share >= 0.4 else "D",
-            "left": "K 集中", "right": "D 分散",
+            "left": "K 押得集中", "right": "D 分得开",
             "pct": _clamp(0.5 - (share - 0.4) / 0.5),
             "note": f"最大 {share:.0%}",
         })

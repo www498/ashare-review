@@ -9,7 +9,6 @@
 
 输出给看板和报告渲染，不做买卖建议，只描述状态和需要验证的条件。
 """
-import math
 
 from .detail import _load_cache
 
@@ -105,10 +104,8 @@ def build_one(code, q, klines, attr=None, fc=None, pos=None):
         else:
             notes.append(f"与「{attr['industry']}」板块同步（偏离 {attr['gap']:+.2f}pp），明日跟板块走")
 
-    # 波动率
-    if fc:
-        notes.append(f"未来 5 日预计波动 ±{fc['sigma_5d'] * math.sqrt(5) * 100:.1f}%，"
-                     f"80% 区间 {fc['lo']:,.2f} ~ {fc['hi']:,.2f}")
+    # 波动率不再写进诊断：_sec_watch 的展开区里已经有一整行「未来 5 个交易日
+    # 波动区间」，带覆盖率与 R²，这里再写一遍会重复。
 
     # 持仓视角
     if pos:

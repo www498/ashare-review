@@ -6,16 +6,23 @@
 画像看的是几十笔交易的统计规律（你是怎样的交易者）；
 这里看的是**今天这一手**在当时的位置上做，合不合理。
 
-判断依据全部来自当时可得的数据：
-- 当日涨跌幅、收盘价在 20 日区间的分位、距 20 日均线的偏离
-- 当日量能相对前 20 日均量的倍数
-- 卖出笔还会用 FIFO 配对结果拿到持有天数与这笔的盈亏
+两层判断，分开给分
+------------------
+1. 位置层：当日涨跌幅、收盘价在 20 日区间的分位、距 20 日均线的偏离、量能。
+   回答「这只票当时在什么位置」。
+2. 时点层：成交时间之前 30 分钟的走势、当日分位、距日内高点、相对均价、量能。
+   回答「为什么在这个时间点动手」。
 
-不做「事后诸葛亮」式的评价：不因为次日涨了就说买对，
-只判断**买入那一刻的位置与量能**是否属于常见的追高/低吸形态。
+时点层只取成交时点及之前的分时，**绝不使用之后的走势**。事后涨跌只在
+「卖出后表现」里出现，且与这里的合理性分数分开算。
+
+结论不是非黑即白：每笔给 0–100 的合理性分数，再落到「合理 / 偏合理 / 中性 /
+偏弱 / 不合理」五档。位置层与时点层按 45% / 55% 加权——一手交易做得好不好，
+「什么时候动手」比「这只票当时在什么位置」更能说明问题。
 """
 
 from .data import limit_pct
+from . import intraday
 
 # 判定阈值。集中放在这里，方便回测调参。
 CHASE_PCT = 5.0        # 当日涨幅超过这个就算「追」
@@ -25,6 +32,9 @@ DIP_POS = 0.30
 FAR_MA = 0.10          # 高于 20 日线 10% 视为偏离过远
 HEAVY_VOL = 2.0
 THIN_VOL = 0.8
+
+# 原 score(-2..2) 折算成 0-100 的位置层基线
+BASE = {-2: 25, -1: 40, 0: 55, 1: 70, 2: 85}
 
 
 def _load(klines=None):
@@ -69,7 +79,8 @@ def _ctx(rows, date):
         vr = (cur / base) if base else None
 
     return {"pct": pct, "pos20": pos, "ma20": ma20, "ma_gap": ma_gap,
-            "vol_ratio": vr, "close": px, "date": dates[idx], "bars": len(closes)}
+            "vol_ratio": vr, "close": px, "prev_close": prev,
+            "date": dates[idx], "bars": len(closes)}
 
 
 def _judge_buy(c, code, price):
@@ -169,7 +180,7 @@ def _judge_sell(c, code, price, match):
 def _outcome(rows, date, sell_px, horizons=(3, 5)):
     """卖出之后这只票怎么走了。
 
-    刻意与 score 分开：score 只评价「卖出那一刻」的位置与量能，
+    刻意与合理性分数分开：分数只评价「卖出那一刻」的位置与盘面，
     这里记录「卖完之后的事实」。两者可能相反 —— 决策合理但卖飞了，
     那恰恰是最值得看的一类复盘。
     """
@@ -187,6 +198,53 @@ def _outcome(rows, date, sell_px, horizons=(3, 5)):
     if after:
         out["max"] = (max(after) / sell_px - 1) * 100 if sell_px else None
     return out or None
+
+
+def _rate_label(x):
+    if x >= 70:
+        return "合理"
+    if x >= 55:
+        return "偏合理"
+    if x >= 45:
+        return "中性"
+    if x >= 30:
+        return "偏弱"
+    return "不合理"
+
+
+def _sell_note(x):
+    """卖出的思考总结。
+
+    关键：不把「后来涨了」直接等同于「卖错了」。总结要指向下次能改的动作，
+    所以先看当时是什么形态（缩量回调 / 放量滞涨 / 亏损割肉），再看结果。
+    """
+    a3, ret = x.get("after3"), x.get("ret_pct")
+    pct, vr = x.get("pct"), x.get("vol_ratio")
+    if a3 is None:
+        return ""
+    if a3 > 3:
+        if ret is not None and ret <= -5:
+            return "亏损单卖在低位后反弹：问题不在这一卖，而在没在 -5% 时先减一半。"
+        if pct is not None and pct < 0 and vr and vr < 0.9:
+            return "缩量回调里离场，多半卖在洗盘上；下次等放量跌破前低再走。"
+        if pct is not None and pct > 3:
+            return "当天已经大涨还卖，属于提前兑现；板块仍强时留三分之一跟趋势。"
+        return "卖后继续走强，方向看早了；按板块三日强弱分批减，能少卖飞一半。"
+    if a3 < -3:
+        if ret is not None and ret <= 0:
+            return "亏损单及时离场、躲过后续下跌，这笔执行是对的，别因为少亏而怀疑。"
+        return "盈利单卖在转弱前，落袋干净。"
+    if a3 < -1:
+        if ret is not None and ret <= 0:
+            return "卖后小幅回落，少亏了几个点；止损方向对，点位还可以等一根阴线确认。"
+        return "卖后小幅回落，兑现略早于转弱，属于可接受的范围。"
+    if a3 > 1:
+        return "卖后小幅走强，少赚了几个点；不算卖错，但下次可以留三分之一。"
+    if ret is not None and ret <= -5:
+        return "卖后走平但仍亏着：这次只是止损，不是卖飞，别用反弹安慰自己。"
+    if ret is not None and ret >= 5:
+        return "卖后走平，利润已经落袋；这笔的关键是把浮盈变成了现金。"
+    return "卖后基本走平，这笔的成败不在点位，而在于当时是否需要这笔资金。"
 
 
 def build(df, col, klines=None, mapping=None, trades=None, day=None):
@@ -249,6 +307,7 @@ def build(df, col, klines=None, mapping=None, trades=None, day=None):
             continue
 
         name = str(r.get(c_name, "") or code) if c_name else code
+        time_str = str(r.get(c_time, "") or "").strip() if c_time else ""
         match = None
         if act == "sell":
             lst = sell_match.get(code) or []
@@ -260,17 +319,37 @@ def build(df, col, klines=None, mapping=None, trades=None, day=None):
         else:
             verdict, score, reasons = _judge_sell(c, code, px, match)
 
+        # ---- 时点层：只取成交时点之前的分时 ----
+        feat = timing = None
+        if time_str:
+            series = intraday.fetch_day(code, day)
+            feat = intraday.features(series, c.get("prev_close"), time_str, px)
+            if feat:
+                timing = intraday.judge(feat, act)
+
+        base = BASE.get(score, 55)
+        if timing:
+            rate = int(round(base * 0.45 + timing[0] * 0.55))
+            t_score, t_label, t_why = timing
+        else:
+            rate = base
+            t_score, t_label, t_why = None, "", []
+
         after = _outcome(kl.get(code) or [], day, px) if act == "sell" else None
 
         rows_out.append({
-            "code": code, "name": name,
-            "time": str(r.get(c_time, "") or "") if c_time else "",
+            "code": code, "name": name, "time": time_str,
             "action": act, "qty": qty, "price": px, "amount": qty * px,
+            # 卖出笔的成本来自 FIFO 配对；买入笔的成本就是成交价
+            "cost": (match or {}).get("buy_px") if act == "sell" else px,
             "pct": c["pct"], "pos20": c["pos20"], "ma_gap": c["ma_gap"],
             "vol_ratio": c["vol_ratio"],
             "hold_days": (match or {}).get("hold_days"),
             "ret_pct": (match or {}).get("ret_pct"),
             "verdict": verdict, "score": score, "reasons": reasons,
+            "timing": ({"score": t_score, "label": t_label, "why": t_why,
+                        "feat": feat} if timing else None),
+            "rate": rate, "rate_label": _rate_label(rate),
             "after": after,
         })
 
@@ -279,30 +358,34 @@ def build(df, col, klines=None, mapping=None, trades=None, day=None):
 
     buys = [x for x in rows_out if x["action"] == "buy"]
     sells = [x for x in rows_out if x["action"] == "sell"]
-    bad = [x for x in rows_out if x["score"] <= -1]
-    good = [x for x in rows_out if x["score"] >= 1]
+    weak = [x for x in rows_out if x["rate"] < 50]
+    strong = [x for x in rows_out if x["rate"] >= 70]
+    rates = sorted(x["rate"] for x in rows_out)
+    med = rates[len(rates) // 2]
     avg_pos = sum(x["pos20"] for x in rows_out) / len(rows_out)
 
-    if bad:
-        head = f"今天 {len(rows_out)} 手，其中 {len(bad)} 手位置不理想（{bad[0]['verdict']}等）。"
-    elif good:
-        head = f"今天 {len(rows_out)} 手，整体位置合理，{len(good)} 手属于低吸或突破形态。"
+    if weak:
+        head = (f"今天 {len(rows_out)} 手，{len(weak)} 手位置或时点偏弱"
+                f"（{weak[0]['verdict']}等），合理性中位数 {med}。")
+    elif strong:
+        head = (f"今天 {len(rows_out)} 手，{len(strong)} 手合理，"
+                f"合理性中位数 {med}。")
     else:
-        head = f"今天 {len(rows_out)} 手，位置基本在中性区间，没有明显追高。"
+        head = f"今天 {len(rows_out)} 手，多数在中性区间，合理性中位数 {med}。"
 
     return {
         "day": day,
         "rows": rows_out,
         "summary": {
             "n": len(rows_out), "buys": len(buys), "sells": len(sells),
-            "good": len(good), "bad": len(bad),
-            "avg_pos": avg_pos, "head": head,
+            "good": len(strong), "bad": len(weak),
+            "avg_pos": avg_pos, "median_rate": med, "head": head,
             "amount": sum(x["amount"] for x in rows_out),
         },
     }
 
 
-def review_sells(df, col, klines=None, trades=None, days=20, limit=6):
+def review_sells(df, col, klines=None, trades=None, days=20, limit=8):
     """回看最近卖出的实际结果：卖完之后是涨了还是跌了。
 
     和「今日复盘」分开的理由：
@@ -310,7 +393,8 @@ def review_sells(df, col, klines=None, trades=None, days=20, limit=6):
     这里回答「卖完之后事实如何」。两者常常相反 —— 决策合理但卖飞了，
     或者决策草率却侥幸躲过。分开摆，才不会被结果带偏判断。
 
-    只保留已经有 3 个交易日后续数据的记录，否则谈不上回看。
+    口径写清楚：本笔 = 相对成本；卖后 N 日 = 相对卖价；
+    「若持有至今」= 最新收盘相对成本。三个百分比基准不同，混着看必然误读。
     """
     import pandas as pd
 
@@ -370,18 +454,35 @@ def review_sells(df, col, klines=None, trades=None, days=20, limit=6):
         t3 = after.get(3)
         if t3 > 3:
             verdict = "卖飞"
+        elif t3 > 1:
+            verdict = "小幅卖飞"
         elif t3 < -3:
             verdict = "躲过"
+        elif t3 < -1:
+            verdict = "小幅躲过"
         else:
             verdict = "无差别"
 
-        rows_out.append({
+        cost = (match or {}).get("buy_px")
+        hold_now = None
+        if cost and rows_k:
+            hold_now = (rows_k[-1][1] / cost - 1) * 100
+        c = _ctx(rows_k, d)
+
+        row = {
             "date": d, "code": code, "name": name, "price": px, "qty": qty,
+            "cost": cost,
             "ret_pct": (match or {}).get("ret_pct"),
             "hold_days": (match or {}).get("hold_days"),
-            "after3": t3, "after5": after.get(5),
+            "after3": t3, "after5": after.get(5), "max_up": after.get("max"),
+            "hold_now": hold_now,
+            "pct": c["pct"] if c else None,
+            "vol_ratio": c["vol_ratio"] if c else None,
+            "pos20": c["pos20"] if c else None,
             "verdict": verdict,
-        })
+        }
+        row["note"] = _sell_note(row)
+        rows_out.append(row)
 
     if not rows_out:
         return None

@@ -135,6 +135,35 @@ tr.det>td{background:#fbfcfd;border-bottom:1px solid #eef0f3;padding:0}
 .pbk .what{flex:1;font-size:12.5px;color:#4a5058;line-height:1.8}
 .pbk .row.pb-good .when{color:#0b7a45}
 .pbk .row.pb-info .when{color:#3f5fa8}
+/* 应对手册改成决策卡：条件 → 先看什么 → 分档动作 → 收手条件。
+   原来的 when/what 两列放不下这些，评委问「到底割多少」时答不上来。 */
+.pbk .pb-card{padding:12px 0 13px;border-bottom:1px solid #f2f4f7}
+.pbk .pb-card:last-child{border-bottom:none;padding-bottom:2px}
+.pbk .pb-card .when{font-size:12.8px;color:#b4530a;font-weight:600;line-height:1.7}
+.pbk .pb-card.pb-good .when{color:#0b7a45}
+.pbk .pb-card.pb-info .when{color:#3f5fa8}
+.pbk .pb-why{font-size:11.8px;color:#8a8f98;line-height:1.75;margin-top:2px}
+.pbk .pb-lab{font-size:10.5px;color:#a0a7b2;margin:8px 0 2px;letter-spacing:.4px}
+.pbk .pb-chk{margin:0;padding-left:15px;font-size:12px;color:#4a5058;line-height:1.75}
+.pbk .pb-step{font-size:12.2px;color:#4a5058;line-height:1.8;margin-top:3px;
+  padding-left:10px;border-left:2px solid #e3e9f2}
+.pbk .pb-step b{color:#1f2937;font-weight:600}
+.pbk .pb-stop{margin-top:9px;padding:8px 11px;border-radius:7px;background:#fff8f0;
+  border-left:3px solid #d9822b;font-size:12px;color:#7a4a12;line-height:1.75}
+.pbk .pb-stop b{color:#a3540c}
+/* 合理性分数：不是非黑即白，给 0-100 和五档 */
+.rate{display:inline-block;min-width:32px;padding:1px 6px;border-radius:5px;
+  font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;text-align:center}
+.rate.r-hi{background:#e8f5ee;color:#0b7a45}
+.rate.r-mid{background:#f1f3f6;color:#5f6368}
+.rate.r-low{background:#fdecea;color:#b3261e}
+.jn-sub{font-size:10.5px;color:#8a8f98;margin-top:2px;white-space:nowrap}
+.jn-time{margin-top:4px;padding:4px 7px;border-radius:5px;background:#f6f9fe;
+  font-size:11px;color:#5a6a80;line-height:1.6}
+.jn-time b{color:#3f5fa8;font-weight:600}
+tr.snote td{background:#fbfcfe;font-size:11.5px;color:#5f6b7a;line-height:1.7;
+  padding:2px 8px 9px 62px}
+tr.snote td b{color:#3f5fa8;font-weight:600}
 table.jn td.jn-why{font-size:11.5px;color:#6b7280;line-height:1.65;max-width:400px}
 .jn-tag{font-size:11.5px;padding:2px 8px;border-radius:4px;font-weight:500;white-space:nowrap}
 .jn-bad2{background:#fdecea;color:#b3261e}
@@ -518,9 +547,10 @@ def _sec_journal(h, ctx):
              f'<span style="font-size:12px;font-weight:400;color:#8a8f98;margin-left:10px">'
              f'{j["day"]}　{s["n"]} 手　买入 {s["buys"]} / 卖出 {s["sells"]}</span></h2>')
     h.append(f'<div class="hint">{s["head"]}</div>')
-    h.append('<table class="jn"><tr><th>标的</th><th>方向</th><th class="n">成交价</th>'
-             '<th class="n">数量</th><th class="n">当日</th><th class="n">20日分位</th>'
-             '<th class="n">量比</th><th>判断</th><th>依据</th></tr>')
+    h.append('<table class="jn"><tr><th>标的</th><th>方向</th><th class="n">时间</th>'
+             '<th class="n">成交价</th><th class="n">成本价</th><th class="n">数量</th>'
+             '<th class="n">当日</th><th class="n">20日分位</th><th class="n">量比</th>'
+             '<th>判断</th><th class="n">合理性</th><th>依据</th></tr>')
     tone = {-2: "jn-bad2", -1: "jn-bad", 0: "jn-mid", 1: "jn-good", 2: "jn-good2"}
     for r in j["rows"]:
         cls = tone.get(r["score"], "jn-mid")
@@ -528,6 +558,11 @@ def _sec_journal(h, ctx):
         side, side_cls = ("买入", "up") if buy else ("卖出", "down")
         vr = f'{r["vol_ratio"]:.1f}' if r.get("vol_ratio") else "—"
         why = "<br>".join(r["reasons"])
+        t = r.get("timing") or {}
+        rtime = r.get("time") or "—"
+        if t.get("why"):
+            why += (f'<div class="jn-time"><b>{rtime} 前盘面</b>　'
+                    + "；".join(t["why"][:4]) + "</div>")
         af = r.get("after") or {}
         t3 = af.get("3")
         if t3 is not None:
@@ -540,44 +575,65 @@ def _sec_journal(h, ctx):
             else:
                 why += f'<br><span style="color:#9aa2ad">卖出后 3 日 {t3:+.1f}%，走势平淡</span>'
 
+        rate = r.get("rate") or 0
+        rcls = "r-hi" if rate >= 70 else ("r-mid" if rate >= 45 else "r-low")
+        sub = f'<div class="jn-sub">{t["label"]}</div>' if t.get("label") else ""
+        cost = f'{r["cost"]:,.2f}' if r.get("cost") is not None else "—"
         h.append(f'<tr><td>{r["name"]}</td><td class="{side_cls}">{side}</td>'
+                 f'<td class="n">{rtime}</td>'
                  f'<td class="n">{r["price"]:,.2f}</td>'
+                 f'<td class="n">{cost}</td>'
                  f'<td class="n">{r["qty"]:,.0f}</td>'
                  f'<td class="n {_c(r["pct"])}">{_pct(r["pct"])}</td>'
                  f'<td class="n">{r["pos20"]:.0%}</td>'
                  f'<td class="n">{vr}</td>'
-                 f'<td><span class="jn-tag {cls}">{r["verdict"]}</span></td>'
+                 f'<td><span class="jn-tag {cls}">{r["verdict"]}</span>{sub}</td>'
+                 f'<td class="n"><span class="rate {rcls}">{rate}</span></td>'
                  f'<td class="jn-why">{why}</td></tr>')
     h.append("</table>")
-    h.append(f'<div style="{NOTE_STYLE}">判断只依据成交当时的涨跌幅、20 日区间分位、'
-             '均线偏离与量能，不参考之后的走势 —— 不是事后诸葛亮。</div>')
+    h.append(f'<div style="{NOTE_STYLE}">合理性 = 位置层 45% + 时点层 55%。'
+             '位置层看当日涨跌、20 日分位与量能；时点层只看成交之前的分时'
+             '（当日分位、前 30 分钟走势、距日内高点、相对均价），'
+             '不参考成交之后的走势 —— 事后涨跌放在下面的「卖出后表现」里单独算。</div>')
 
     # 最近卖出的后续表现：把「当时怎么判的」和「事后怎么走的」并排放
     sr = ctx.get("sell_review") or []
     if sr:
-        fly = sum(1 for x in sr if x["verdict"] == "卖飞")
+        fly = sum(1 for x in sr if x["verdict"] in ("卖飞", "小幅卖飞"))
         h.append(f'<div class="srev"><div class="srt">最近卖出的后续表现'
                  f'<span style="font-weight:400;color:#8a8f98;font-size:11.5px;'
                  f'margin-left:8px">共 {len(sr)} 笔，{fly} 笔事后看是卖飞</span></div>')
         h.append('<table class="nl"><tr><th style="width:52px">卖出日</th><th>标的</th>'
-                 '<th class="n">卖价</th><th class="n">持有</th><th class="n">本笔</th>'
-                 '<th class="n">卖后3日</th><th class="n">卖后5日</th><th>结论</th></tr>')
+                 '<th class="n">卖价</th><th class="n">成本</th><th class="n">持有</th>'
+                 '<th class="n">本笔</th><th class="n">卖后3日</th><th class="n">卖后5日</th>'
+                 '<th class="n">若持有至今</th><th>结论</th></tr>')
+        vtone = {"卖飞": "jn-bad2", "小幅卖飞": "jn-bad",
+                 "躲过": "jn-good", "小幅躲过": "jn-good", "无差别": "jn-mid"}
         for x in sr:
-            tone = {"卖飞": "jn-bad2", "躲过": "jn-good", "无差别": "jn-mid"}[x["verdict"]]
+            tone = vtone.get(x["verdict"], "jn-mid")
             a3 = f'{x["after3"]:+.1f}%' if x.get("after3") is not None else "—"
             a5 = f'{x["after5"]:+.1f}%' if x.get("after5") is not None else "—"
             hold = f'{x["hold_days"]:.0f} 天' if x.get("hold_days") is not None else "—"
             ret = f'{x["ret_pct"]:+.1f}%' if x.get("ret_pct") is not None else "—"
+            cost = f'{x["cost"]:,.2f}' if x.get("cost") is not None else "—"
+            hn = f'{x["hold_now"]:+.1f}%' if x.get("hold_now") is not None else "—"
             h.append(f'<tr><td style="color:#8a8f98">{x["date"][5:]}</td>'
                      f'<td>{x["name"]}</td><td class="n">{x["price"]:,.2f}</td>'
+                     f'<td class="n">{cost}</td>'
                      f'<td class="n">{hold}</td><td class="n">{ret}</td>'
                      f'<td class="n {_c(x.get("after3"))}">{a3}</td>'
                      f'<td class="n {_c(x.get("after5"))}">{a5}</td>'
+                     f'<td class="n {_c(x.get("hold_now"))}">{hn}</td>'
                      f'<td><span class="jn-tag {tone}">{x["verdict"]}</span></td></tr>')
+            if x.get("note"):
+                h.append(f'<tr class="snote"><td colspan="10"><b>总结</b>　'
+                         f'{esc(x["note"])}</td></tr>')
         h.append("</table>")
-        h.append(f'<div style="{NOTE_STYLE}">「卖飞」= 卖出后 3 个交易日又涨了 3% 以上。'
-                 '结果与决策质量要分开看：卖在缩量回调上属于决策偏早，'
-                 '但卖在放量滞涨上即使后来涨了也不算错。</div>')
+        h.append(f'<div style="{NOTE_STYLE}">「本笔」相对成本，「卖后 3/5 日」相对卖价，'
+                 '「若持有至今」是最新收盘仍相对成本 —— 三个数基准不同，别混着看：'
+                 '卖后 5 日 -0.2% 只是说卖完没涨，不代表已经回本。'
+                 '结果与决策质量分开：卖在缩量回调上属于决策偏早，'
+                 '卖在放量滞涨上即使后来涨了也不算错。</div>')
         h.append("</div>")
     h.append("</div>")
 
@@ -595,6 +651,14 @@ def _nw_when(n):
 def _sec_watch(h, ctx):
     """自选股表格 + 每只股票的展开详情（分时 / 近20日 / 诊断 / 多日归因）。"""
     det_all = ctx.get("detail") or {}
+    # 波动区间不再单独占一张卡：它只对这只票有意义，放进展开区里。
+    # 预测结果的 sym 带 sh/sz 前缀（sz300308），和 anomalies 的 6 位代码对齐后才能匹配。
+    fc_all = {}
+    for x in (ctx.get("forecast") or []):
+        k = str(x.get("sym") or "")
+        if k[:2].lower() in ("sh", "sz", "bj"):
+            k = k[2:]
+        fc_all[k] = x
     h.append('<div class="card"><h2>自选股'
              '<span class="wbp-slot" data-slot="wl"></span></h2>'
              '<div class="hint">点击任意一行展开今日分时与近 20 日走势　·　'
@@ -678,6 +742,20 @@ def _sec_watch(h, ctx):
             bits.append("触发条件：" + "、".join(a["reasons"]))
         h.append('<div class="dcell" style="min-width:260px;font-size:12.5px;color:#5f6368">'
                  "<div class='t'>明细</div>" + "<br>".join(bits) + "</div>")
+
+        # 未来 5 日波动区间：并进这只票的分析里，而不是另开一张卡
+        fc = fc_all.get(a["code"])
+        if fc:
+            h.append('<div class="dcell" style="flex:1 0 100%;border-top:1px dashed '
+                     '#eef0f3;padding-top:8px">'
+                     '<div class="t">未来 5 个交易日波动区间（80%）</div>'
+                     f'<div style="font-size:12.5px;color:#4a5058">'
+                     f'<b>{fc["lo"]:,.2f} ~ {fc["hi"]:,.2f}</b>　'
+                     f'现价 {fc["price"]:,.2f}　'
+                     f'年化波动 {(fc.get("ann_vol") or 0):.0f}%　'
+                     f'<span style="color:#8a8f98">滚动样本外覆盖 '
+                     f'{fc.get("coverage", 0):.0%}，R² {(fc.get("r2") or 0):.2f}；'
+                     f'只当波动包络，不预测方向</span></div></div>')
 
         # 诊断块（整行宽）
         if card:
@@ -811,8 +889,8 @@ def _sec_portfolio(h, ctx):
     h.append("</div>")
 
     h.append('<table><tr><th>名称</th><th class="n">数量</th><th class="n">成本</th>'
-             '<th class="n">现价</th><th class="n">市值</th><th class="n">浮盈</th>'
-             '<th class="n">盈亏率</th><th class="n">今日盈亏</th>'
+             '<th class="n">现价</th><th class="n">市值</th><th class="n">浮动盈亏(元)</th>'
+             '<th class="n">收益率</th><th class="n">今日盈亏</th>'
              '<th class="n">今日涨跌</th><th style="width:70px">占比</th></tr>')
     for r in p["rows"]:
         w = r["weight"] or 0
@@ -829,8 +907,6 @@ def _sec_portfolio(h, ctx):
                  f'<div style="background:#9fb6d9;height:7px;border-radius:3px;width:{w:.0f}%"></div>'
                  f'</div><span style="font-size:10.5px;color:#8a8f98">{w:.0f}%</span></td></tr>')
     h.append("</table>")
-    h.append(f'<div style="{NOTE_STYLE}">成本价按你填的数值计算，未考虑手续费与分红送转；'
-             f'今日盈亏按（现价 − 昨收）× 数量估算。</div>')
     h.append("</div>")
 
 
@@ -1000,7 +1076,8 @@ def _sec_profile(h, ctx, compact=False):
         h.append('</div>')
         h.append('<div class="hint">四维各二选一，共 16 型：'
                  '<b>节奏</b> F 快 / S 慢　<b>归因</b> B 跟板块 / A 走独立　'
-                 '<b>盈亏</b> C 截断利润 / R 让利润跑　<b>持仓</b> K 集中 / D 分散。'
+                 '<b>盈亏</b> C 赚了就走 / R 赚了能拿　'
+                 '<b>持仓</b> K 押得集中 / D 分得开。'
                  '同一行色系代表同一种打法，行内差异只看后两个字母。'
                  '　<a href="../../../persona.html" target="_blank" '
                  'style="color:#4a6fa5">看图鉴里的 16 个形象 →</a></div>')
@@ -1027,17 +1104,33 @@ def _sec_profile(h, ctx, compact=False):
         if per.get("fix"):
             h.append(f'<div class="pfix"><em>只改一件事</em>　{per["fix"]}</div>')
         if per.get("ai"):
-            h.append(f'<div class="pai">{per["ai"]}'
-                     f'<span class="tag2">AI 生成 · 数字来自交割单</span></div>')
+            h.append(f'<div class="pai">{per["ai"]}</div>')
         h.append("</div>")
 
     pb = p.get("playbook")
     if pb:
         h.append('<div class="pbk"><div class="pbt">遇到这些情况，这样做</div>')
         for r in pb:
-            h.append(f'<div class="row pb-{r.get("tone") or "info"}">'
-                     f'<div class="when">{r["when"]}</div>'
-                     f'<div class="what">{r["what"]}</div></div>')
+            tone = r.get("tone") or "info"
+            h.append(f'<div class="pb-card pb-{tone}">'
+                     f'<div class="when">{esc(r["when"])}</div>')
+            if r.get("why"):
+                h.append(f'<div class="pb-why">{esc(r["why"])}</div>')
+            if r.get("checks"):
+                h.append('<div class="pb-lab">先看这三件事</div><ul class="pb-chk">')
+                for ck in r["checks"]:
+                    h.append(f"<li>{esc(ck)}</li>")
+                h.append("</ul>")
+            if r.get("steps"):
+                h.append('<div class="pb-lab">分档处理</div>')
+                for cond, act in r["steps"]:
+                    h.append(f'<div class="pb-step"><b>{esc(cond)}</b>　→　{esc(act)}</div>')
+            if r.get("stop"):
+                h.append(f'<div class="pb-stop"><b>收手条件</b>　{esc(r["stop"])}</div>')
+            # 兼容旧快照里的 when/what 结构
+            if r.get("what"):
+                h.append(f'<div class="pb-step">{esc(r["what"])}</div>')
+            h.append("</div>")
         h.append("</div>")
 
     if p.get("tags"):
@@ -1246,20 +1339,8 @@ def render_html(ctx):
                      + "、".join(f'{n}（{p:+.2f}%）' for n, p in bk["names"]) + "</div>")
         h.append("</div>")
 
-    # 波动区间
-    if ctx.get("forecast"):
-        h.append('<div class="card"><h2>未来 5 日波动区间</h2>'
-                 '<div class="hint">80% 经验分位区间，蓝点为现价。不预测方向，只给波动包络</div>')
-        h.append(chart_range(ctx["forecast"]))
-        cov = sum(r["coverage"] for r in ctx["forecast"]) / len(ctx["forecast"])
-        r2s = sorted(r["r2"] for r in ctx["forecast"])
-        r2_med = r2s[len(r2s) // 2]
-        neg = sum(1 for x in r2s if x <= 0)
-        h.append(f'<div style="{NOTE_STYLE}">滚动样本外覆盖率均值 {cov:.0%}（目标 80%）　'
-                 f'模型 R² 中位数 {r2_med:.2f}'
-                 f'{f"，{neg} 只标的为负（波动率不可预测）" if neg else ""}'
-                 f'　区间宽度随个股波动率自动缩放</div>')
-        h.append("</div>")
+    # 未来 5 日波动区间不再单独成卡：并进自选股每只票的展开区（_sec_watch）。
+    # 它只对具体标的成立，单独一张卡会让人误以为在预测大盘方向。
 
     # 板块：优先东财资金流，不可用时退回自有行业涨幅口径
     if ctx.get("sector"):

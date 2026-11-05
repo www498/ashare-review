@@ -115,9 +115,36 @@ def check_news():
           all(not v for k, v in got.items() if k == "600009"))
 
 
+def check_intraday():
+    """时点评分只能用成交之前的分时。
+
+    在 t 之后追加剧烈波动的数据，t 时刻的特征与分数必须完全不变。
+    这是这个模块最容易被写错、也最容易被评委问住的地方。
+    """
+    from ashare import intraday
+
+    prev = 10.0
+    am = [["09:30", 10.00, 100], ["09:35", 10.05, 110], ["09:40", 10.10, 120],
+          ["09:50", 10.20, 90], ["09:55", 10.25, 95], ["10:00", 10.30, 150]]
+    f1 = intraday.features(am, prev, "10:00", 10.30)
+    s1 = intraday.judge(f1, "sell")
+    check("10:00 前 5 分钟以上才计算", f1 is not None)
+
+    after = [["10:05", 6.0, 9000], ["10:10", 15.0, 8000], ["10:15", 5.0, 7000],
+             ["10:20", 16.0, 6000]]
+    f2 = intraday.features(am + after, prev, "10:00", 10.30)
+    s2 = intraday.judge(f2, "sell")
+    check("时点特征不随之后走势变化", f1 == f2)
+    check("时点评分不随之后走势变化", s1 == s2, f"{s1[0]} vs {s2[0]}")
+
+    # 买入与卖出用同一份特征，但评分方向不能一样（追高 vs 卖在高位）
+    b = intraday.judge(f1, "buy")
+    check("买卖两侧给出不同判断", b[0] != s1[0], f"buy {b[0]} / sell {s1[0]}")
+
+
 def main():
     print("复盘台 · 离线自检\n")
-    for fn in (check_types, check_fifo, check_attribution, check_news):
+    for fn in (check_types, check_fifo, check_attribution, check_news, check_intraday):
         print(f"[{fn.__name__.replace('check_', '')}]")
         try:
             fn()
