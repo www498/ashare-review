@@ -21,8 +21,11 @@
 
 ![今日逐笔复盘](docs/screens/02-journal.png)
 
-**在线演示**：<https://www498.gitee.io/ashare-review>（Gitee Pages 开启后可用；未开启时看上面的截图）
-**本地打开**：下载仓库后双击 `docs/demo.html`，或解压 `dist/demo-offline.zip`，不需要联网。
+**打开完整页面**：下载 [`docs/demo-offline.zip`](docs/demo-offline.zip)（1.5 MB），解压后双击 `demo.html`；
+或克隆仓库后直接打开 `docs/demo.html`。两者都不需要联网、不需要启动服务。
+
+> Gitee Pages 已于 2024 年 5 月下线，仓库里的 HTML 无法在网页上直接渲染（`.html` 直链返回 451）。
+> 所以演示做成「下载即开」的离线包，而不是在线链接。
 
 ---
 
@@ -449,10 +452,10 @@ GitHub Pages 在国内的访问不稳定，所以演示准备了两条路：
 
 | 用途 | 位置 | 说明 |
 |---|---|---|
-| 现场演示（首选） | `dist/demo-offline.zip` → 解压双击 `demo.html` | 不联网、不启动服务，约 1.5MB |
+| 现场演示（首选） | `docs/demo-offline.zip` → 解压双击 `demo.html` | 不联网、不启动服务，约 1.5MB |
 | 代码备份 / 评委访问 | Gitee 或 GitCode | `tools/cn_push.py` 一键推送全部分支与标签 |
 
-`docs/DEPLOY_CN.md` 写了完整步骤：网页导入、令牌推送、Gitee Pages 开启、当天检查清单。
+`docs/DEPLOY_CN.md` 写了完整步骤：网页导入、令牌推送、当天检查清单，以及 Gitee Pages 已下线的说明。
 推送令牌只走命令行，推完会从 `.git/config` 里抹掉，不写进仓库。
 
 答辩材料在 `ppt/复盘台答辩/`：10 页、7 分钟，设计稿见同目录 `DESIGN.md`，

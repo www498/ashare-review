@@ -2,7 +2,7 @@
 
 ## 先说结论
 
-**答辩当天的演示不依赖网络。** 现场用本地的 `docs/demo.html`（或解压 `dist/demo-offline.zip`）
+**答辩当天的演示不依赖网络。** 现场用本地的 `docs/demo.html`（或解压 `docs/demo-offline.zip`）
 直接双击打开；国内 Git 承担两件事：代码备份、评委事后查看。
 
 原因很直接：Pages 类服务都可能遇到现场网络、域名解析、平台审核问题；
@@ -49,28 +49,28 @@ GitCode 用法相同，把域名换成 `gitcode.com`。
 
 ## 二、演示页放哪里
 
-| 方式 | 稳定性 | 说明 |
+**先说结论：Gitee 没有可用的在线演示能力。**
+
+Gitee Pages 已于 **2024 年 5 月下线**，官方回复是「由于不可抗原因，服务已下线，暂无恢复计划」。
+现在仓库「服务」菜单里只剩腾讯云托管、阿里云 SAE、CodeCheck 这些，没有 Pages。
+另外实测：仓库里 `.html` 的 raw 直链返回 **451**，浏览器只会显示源码，不会渲染页面。
+所以下面这条路是断的，不要再按旧教程操作。
+
+| 方式 | 可用性 | 说明 |
 |---|---|---|
-| **本地文件（首选）** | 最高 | 解压 `dist/demo-offline.zip`，双击 `demo.html` |
-| Gitee Pages | 中 | 需实名认证；仓库 → 服务 → Gitee Pages → 部署 `docs` 目录 |
-| 仓库内的 HTML | 低 | Gitee 不渲染 HTML，评委需下载后本地打开 |
+| **离线包（推荐）** | 可用 | 仓库里 `docs/demo-offline.zip`，下载解压双击 `demo.html` |
+| 仓库内直接打开 | 可用 | 克隆仓库后双击 `docs/demo.html` |
+| README 截图 | 可用 | 仓库首页已放画像与逐笔两张真实界面图 |
+| Gitee Pages | **已下线** | 2024 年 5 月停止服务 |
+| GitHub Pages | 可用但不稳 | 国内访问看线路，不能作为现场唯一方案 |
 
-Gitee Pages 开启步骤：
+如果评审明确要求「点链接就能看」，只有两条路，都要额外成本：
 
-1. 打开你的仓库页，顶部菜单找 **服务 → Gitee Pages**；
-2. 部署分支选默认分支（`master` 或 `main`）；
-3. **部署目录填 `docs`**；
-4. 勾选「强制使用 HTTPS」，点「启动」；
-5. 得到地址：`https://<你的用户名>.gitee.io/ashare-review`。
+1. **自有域名 + ICP 备案 + 国内静态托管**（腾讯云 EdgeOne Pages、阿里云 OSS、腾讯云 CloudBase）。
+   备案通常 1–2 周，免费二级域名拿不到大陆节点，手机打开仍然可能失败。
+2. **AtomGit Pages**：国内平台，流程与当年的 Gitee Pages 类似，免费，但长期可用性需自己评估。
 
-`docs/index.html` 已经做成入口页，会自动跳到 `docs/demo.html`，所以评委打开根地址就能看，
-不用记长路径。16 型形象的图片在 `docs/assets/persona/`，随 `docs` 目录一起部署。
-
-**首次开启需要实名认证**（个人设置 → 实名认证，身份证 + 人脸）。
-审核可能要几分钟到几小时，**不要等到答辩当天才开**。
-
-如果仓库页找不到「服务 / Gitee Pages」入口，说明当前账号或仓库类型不支持，
-不要在这上面耗时间——直接用本地的 `dist/demo-offline.zip`，评委要看就把包发过去。
+答辩在即，不建议现在去开新平台。现场用离线包，仓库给评委看代码和截图，足够了。
 
 ---
 
@@ -91,7 +91,7 @@ Gitee Pages 开启步骤：
 python tools/build_demo_page.py 2026-11-04 pm demo
 
 # 2. 重新打包离线演示包
-python -c "import zipfile,os; z=zipfile.ZipFile('dist/demo-offline.zip','w',zipfile.ZIP_DEFLATED); z.write('docs/demo.html','demo.html'); [z.write(os.path.join('docs/assets/persona',f),'assets/persona/'+f) for f in sorted(os.listdir('docs/assets/persona')) if f.endswith('.png')]; z.close()"
+python -c "import zipfile,os; z=zipfile.ZipFile('docs/demo-offline.zip','w',zipfile.ZIP_DEFLATED); z.write('docs/demo.html','demo.html'); [z.write(os.path.join('docs/assets/persona',f),'assets/persona/'+f) for f in sorted(os.listdir('docs/assets/persona')) if f.endswith('.png')]; z.close()"
 
 # 3. 提交并推送国内仓库
 git add -A && git commit -m "更新演示页"
@@ -104,4 +104,4 @@ python tools/cn_push.py "https://<用户名>:<令牌>@gitee.com/<用户名>/asha
 
 GitHub Pages 在国内的访问稳定性不可控：DNS 污染、CDN 节点、运营商差异都会导致
 打开缓慢或失败。代码留在 GitHub 没问题（评委可访问性由平台保证），
-但**现场演示必须有一个不依赖网络的版本**。这就是 `dist/demo-offline.zip` 存在的理由。
+但**现场演示必须有一个不依赖网络的版本**。这就是 `docs/demo-offline.zip` 存在的理由。
